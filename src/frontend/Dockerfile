@@ -1,11 +1,11 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY app/package.json app/package-lock.json ./
 RUN npm ci
 
-COPY . .
+COPY app/ .
 RUN npm run build
 
 FROM nginx:alpine
