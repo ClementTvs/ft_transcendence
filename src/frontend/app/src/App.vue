@@ -1,15 +1,18 @@
 <script setup>
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 const dark = ref(false);
 
 function toggleDark() {
   dark.value = !dark.value;
 }
+
+const route = useRoute();
 </script>
 
 <template>
-  <nav :class="dark ? 'bg-gray-800 text-white border-blue-300' : 'bg-rose-50 border-gray-800'" class="flex justify-between items-center h-24 px-4 border-b-4">
+  <nav v-if="route.path !== '/login'" :class="dark ? 'bg-gray-800 text-white border-blue-300' : 'bg-rose-50 border-gray-800'" class="flex justify-between items-center h-24 px-4 border-b-4">
     <router-link to="/profile">
       <div class="rounded-full p-2 bg-black">
         <img src="/def_user.png" class="h-8 w-8"/>
