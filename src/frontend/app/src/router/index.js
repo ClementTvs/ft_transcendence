@@ -1,8 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Home from "../view/Home.vue"
+import Profile from "../view/Profile.vue"
+import Post from "../view/Post.vue"
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [],
+  routes: [
+    {path: '/', component: Home},
+    {path: '/profile', component: Profile},
+    {path: '/post', component: Post},
+    {path: '/login', component: Login}
+  ],
 })
 
 export default router

@@ -9,27 +9,30 @@ function toggleDark() {
 </script>
 
 <template>
-  <nav :class="dark ? 'bg-rose-50' : 'bg-gray-800 text-white border-blue-300'" class="flex justify-between items-center h-24 px-4 border-b-4">
-    <span>Logo</span>
+  <nav :class="dark ? 'bg-gray-800 text-white border-blue-300' : 'bg-rose-50 border-gray-800'" class="flex justify-between items-center h-24 px-4 border-b-4">
+    <router-link to="/profile">
+      <div class="rounded-full p-2 bg-black">
+        <img src="/def_user.png" class="h-8 w-8"/>
+      </div>
+    </router-link>
     <div class="flex gap-12">
-      <a>Accueil</a>
-      <a>Post</a>
-      <a>Profil</a>
+      <router-link to="/">
+        <p>Accueil</p>
+      </router-link>
+      <router-link to="/post">
+        <p>Post</p>
+      </router-link>
     </div>
     <button @click="toggleDark">
-      <div :class="dark ? 'bg-rose-200' : 'bg-gray-600'" class="rounded-full p-2">
+      <div :class="dark ? 'bg-gray-600' : 'bg-rose-200'" class="rounded-full p-2">
         <img
           :src="dark ? '/sun.svg' : '/moon.svg'"
-          class="h-6 w-6"
+          class="h-8 w-8"
         />
       </div>
     </button>
   </nav>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <router-view />
 </template>
 
 <style scoped></style>
