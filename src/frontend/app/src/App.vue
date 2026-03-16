@@ -1,14 +1,29 @@
 <script setup>
-import { ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from './stores/user';
+import { getProfile } from './api';
 
 const dark = ref(false);
+const userStore = useUserStore();
+const route = useRoute();
+const router = useRouter();
 
 function toggleDark() {
   dark.value = !dark.value;
 }
 
-const route = useRoute();
+onMounted(async () => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    try {
+      await userStore.fetchUser()
+    } catch {
+      localStorage.removeItem('token')
+      router.push('/login')
+    }
+  }
+})
 </script>
 
 <template>
@@ -24,6 +39,9 @@ const route = useRoute();
       </router-link>
       <router-link to="/post">
         <p>Post</p>
+      </router-link>
+      <router-link to="/game">
+        <p>Game</p>
       </router-link>
     </div>
     <button @click="toggleDark">
