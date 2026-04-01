@@ -18,6 +18,7 @@ class User(Base):
     is_online = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", cascade="all, delete-orphan")
     
     # Relationships
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
@@ -94,3 +95,20 @@ class Follow(Base):
     # Relationships
     follower = relationship("User", foreign_keys=[follower_id], back_populates="following")
     followed = relationship("User", foreign_keys=[followed_id], back_populates="followers")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_read = Column(Boolean, default=False)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="notifications", foreign_keys=[user_id])
+    actor = relationship("User", foreign_keys=[actor_id])
+    post = relationship("Post", foreign_keys=[post_id])

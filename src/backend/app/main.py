@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 # Import models BEFORE creating tables so SQLAlchemy knows about them
 from app import models
-from app.routes import auth, users, posts, comments, social
+from app.routes import auth, users, posts, comments, social, notifications
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -30,6 +30,7 @@ app.include_router(users.router)
 app.include_router(posts.router)
 app.include_router(comments.router)
 app.include_router(social.router)
+app.include_router(notifications.router)
 
 
 @app.get("/health")

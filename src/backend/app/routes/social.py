@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.models import User, Follow
+from app.models import User, Follow, Notification
 from app.schemas import FollowResponse, FollowWithUser, UserResponse
 from app.auth import get_current_active_user
 
@@ -47,6 +47,13 @@ async def follow_user(
     )
     
     db.add(new_follow)
+    db.commit()
+    new_notification = Notification(
+        user_id=user_to_follow.id,
+        actor_id=current_user.id,
+        type="follow"
+    )
+    db.add(new_notification)
     db.commit()
     
     return {"message": f"Successfully followed user {user_to_follow.username}"}

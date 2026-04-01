@@ -4,7 +4,7 @@ from sqlalchemy import desc
 from typing import List
 
 from app.database import get_db
-from app.models import User, Post, Like, Comment
+from app.models import User, Post, Like, Comment, Notification
 from app.schemas import PostCreate, PostUpdate, PostResponse, PostWithAuthor, UserResponse
 from app.auth import get_current_active_user
 
@@ -218,6 +218,16 @@ async def like_post(
     new_like = Like(post_id=post_id, user_id=current_user.id)
     db.add(new_like)
     db.commit()
+
+    if post.author_id != current_user.id:
+        new_notification = Notification(
+            user_id=post.author_id,
+            post_id=post.id,
+            actor_id=current_user.id,
+            type="like"
+        )
+        db.add(new_notification)
+        db.commit()
     
     return {"message": "Post liked successfully"}
 

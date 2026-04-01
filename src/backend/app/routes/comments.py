@@ -4,7 +4,7 @@ from sqlalchemy import desc
 from typing import List
 
 from app.database import get_db
-from app.models import User, Post, Comment
+from app.models import User, Post, Comment, Notification
 from app.schemas import CommentCreate, CommentUpdate, CommentResponse, CommentWithAuthor
 from app.auth import get_current_active_user
 
@@ -32,6 +32,16 @@ async def create_comment(
     db.add(new_comment)
     db.commit()
     db.refresh(new_comment)
+
+    if post.author_id != current_user.id:
+        new_notification = Notification(
+            user_id=post.author_id,
+            post_id=post.id,
+            actor_id=current_user.id,
+            type="comment"
+        )
+        db.add(new_notification)
+        db.commit()
     
     return new_comment
 

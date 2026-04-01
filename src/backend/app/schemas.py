@@ -143,3 +143,19 @@ class FollowWithUser(BaseModel):
 
     class Config:
         from_attributes = True
+
+class NotificationResponse(BaseModel):
+    id: int
+    user_id: int
+    post_id: Optional[int] = None
+    actor_id: int
+    type: str
+    created_at: datetime
+    is_read: bool
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationWithActor(NotificationResponse):
+    actor: UserResponse
