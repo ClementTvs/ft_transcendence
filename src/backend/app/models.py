@@ -96,6 +96,31 @@ class Follow(Base):
     follower = relationship("User", foreign_keys=[follower_id], back_populates="following")
     followed = relationship("User", foreign_keys=[followed_id], back_populates="followers")
 
+class Conversation(Base):
+	__tablename__ = "conversations"
+
+	id = Column(Integer, primary_key=True, index=True)
+	user1_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+	user2_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+	
+	# Relationships
+	user1 = relationship("User", foreign_keys=[user1_id])
+	user2 = relationship("User", foreign_keys=[user2_id])
+	messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+ 
+class Message(Base):
+	__tablename__ = "messages"
+
+	id = Column(Integer, primary_key=True, index=True)
+	conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
+	sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+	content = Column(String, nullable=False)
+	created_at = Column(DateTime(timezone=True), server_default=func.now())
+	is_read = Column(Boolean, default=False)
+
+	# Relationships
+	conversation = relationship("Conversation", back_populates="messages")
+	sender = relationship("User")
 
 class Notification(Base):
     __tablename__ = "notifications"

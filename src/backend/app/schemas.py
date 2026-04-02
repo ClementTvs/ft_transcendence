@@ -159,3 +159,30 @@ class NotificationResponse(BaseModel):
 
 class NotificationWithActor(NotificationResponse):
     actor: UserResponse
+
+
+# Message / Conversation Schemas
+class MessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    sender_id: int
+    content: str
+    created_at: datetime
+    is_read: bool
+    sender: UserResponse
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationResponse(BaseModel):
+    id: int
+    user1_id: int
+    user2_id: int
+    created_at: datetime
+    other_user: UserResponse
+    last_message: Optional[MessageResponse] = None
+    unread_count: int = 0
+
+    class Config:
+        from_attributes = True

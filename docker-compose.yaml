@@ -17,6 +17,7 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - SECRET_KEY=your-secret-key-change-this-in-production-please
+      - ENCRYPTION_KEY=your-encryption-key-change-this-in-production-please
     depends_on:
       db:
         condition: service_healthy
