@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import User, Post, Like, Comment, Notification
 from app.schemas import PostCreate, PostUpdate, PostResponse, PostWithAuthor, UserResponse
 from app.auth import get_current_active_user
+from app.ws_manager import notif_manager
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
@@ -228,6 +229,12 @@ async def like_post(
         )
         db.add(new_notification)
         db.commit()
+        await notif_manager.send_to_user(post.author_id, {
+            "type": "like",
+            "actor_id": current_user.id,
+            "actor_username": current_user.username,
+            "post_id": post.id,
+        })
     
     return {"message": "Post liked successfully"}
 

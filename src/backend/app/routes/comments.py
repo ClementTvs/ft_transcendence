@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import User, Post, Comment, Notification
 from app.schemas import CommentCreate, CommentUpdate, CommentResponse, CommentWithAuthor
 from app.auth import get_current_active_user
+from app.ws_manager import notif_manager
 
 router = APIRouter(prefix="/api/comments", tags=["comments"])
 
@@ -42,6 +43,12 @@ async def create_comment(
         )
         db.add(new_notification)
         db.commit()
+        await notif_manager.send_to_user(post.author_id, {
+            "type": "comment",
+            "actor_id": current_user.id,
+            "actor_username": current_user.username,
+            "post_id": post.id,
+        })
     
     return new_comment
 

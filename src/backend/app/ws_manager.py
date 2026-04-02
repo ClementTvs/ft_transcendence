@@ -23,3 +23,4 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+notif_manager = ConnectionManager()

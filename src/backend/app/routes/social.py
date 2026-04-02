@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import User, Follow, Notification
 from app.schemas import FollowResponse, FollowWithUser, UserResponse
 from app.auth import get_current_active_user
+from app.ws_manager import notif_manager
 
 router = APIRouter(prefix="/api/social", tags=["social"])
 
@@ -55,6 +56,11 @@ async def follow_user(
     )
     db.add(new_notification)
     db.commit()
+    await notif_manager.send_to_user(user_to_follow.id, {
+        "type": "follow",
+        "actor_id": current_user.id,
+        "actor_username": current_user.username,
+    })
     
     return {"message": f"Successfully followed user {user_to_follow.username}"}
 

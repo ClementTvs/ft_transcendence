@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models import User, Notification
 from app.schemas import NotificationWithActor
-from app.auth import get_current_active_user
+from app.auth import get_current_active_user, verify_token
+from app.ws_manager import notif_manager
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -86,3 +87,33 @@ async def mark_as_read(
     db.commit()
 
     return {"message": "Notification marked as read"}
+
+
+@router.websocket("/ws")
+async def websocket_notifications(websocket: WebSocket, token: str = Query(...)):
+    try:
+        token_data = verify_token(token)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    db = SessionLocal()
+    user = db.query(User).filter(
+        User.username == token_data.username,
+        User.is_active == True,
+    ).first()
+    db.close()
+
+    if not user:
+        await websocket.close(code=1008)
+        return
+
+    await notif_manager.connect(user.id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()  # maintient la connexion, attrape le disconnect
+    except WebSocketDisconnect:
+        pass
+    finally:
+        notif_manager.disconnect(user.id)
