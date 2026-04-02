@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+import uuid
+import os
+import shutil
 
 from app.database import get_db
 from app.models import User, Post, Follow
@@ -8,6 +11,9 @@ from app.schemas import UserResponse, UserUpdate, UserWithStats
 from app.auth import get_current_active_user, get_password_hash
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+UPLOAD_DIR = "static"
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -120,3 +126,47 @@ async def get_user_stats(
         "follower_count": follower_count,
         "following_count": following_count
     }
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Le fichier doit être une image (jpeg, png, gif, webp)")
+
+    ext = file.filename.rsplit(".", 1)[-1]
+    filename = f"avatar_{uuid.uuid4()}.{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    current_user.avatar_url = f"/static/{filename}"
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/banner", response_model=UserResponse)
+async def upload_banner(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Le fichier doit être une image (jpeg, png, gif, webp)")
+
+    ext = file.filename.rsplit(".", 1)[-1]
+    filename = f"banner_{uuid.uuid4()}.{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    current_user.banner_url = f"/static/{filename}"
+    db.commit()
+    db.refresh(current_user)
+    return current_user

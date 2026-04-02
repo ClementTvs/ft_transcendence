@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
@@ -53,7 +53,7 @@ def _build_conversation(conv: Conversation, current_user_id: int, db: Session) -
         "id": conv.id,
         "user1_id": conv.user1_id,
         "user2_id": conv.user2_id,
-        "created_at": datetime.now(datetime.timezone.utc),
+        "created_at": datetime.now(timezone.utc),
         "other_user": other,
         "last_message": _build_message(last_msg) if last_msg else None,
         "unread_count": unread_count,

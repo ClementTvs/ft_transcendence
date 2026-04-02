@@ -17,6 +17,7 @@ class UserUpdate(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    banner_url: Optional[str] = None
     email: Optional[EmailStr] = None
 
 
@@ -25,6 +26,7 @@ class UserResponse(UserBase):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    banner_url: Optional[str] = None
     is_active: bool
     is_online: bool
     created_at: datetime
