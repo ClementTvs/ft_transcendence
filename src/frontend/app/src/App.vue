@@ -1,23 +1,115 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from './stores/user';
-import { getProfile } from './api';
+import { useUserStore } from './stores/user'
 
-const dark = ref(false);
-const userStore = useUserStore();
-const route = useRoute();
-const router = useRouter();
+const dark = ref(false)
+const userStore = useUserStore()
+const route = useRoute()
+const router = useRouter()
+
+const showNotifDropdown = ref(false)
+const notifications = ref([])
+const unreadCount = ref(0)
+
+const API = 'http://localhost:8000'
+
+const user = computed(() => userStore.user)
+
+const avatarSrc = computed(() => {
+  if (!user.value?.avatar_url) return '/def_user.png'
+  if (user.value.avatar_url.startsWith('http')) return user.value.avatar_url
+  if (user.value.avatar_url.startsWith('/uploads')) return `${API}${user.value.avatar_url}`
+  return user.value.avatar_url
+})
+
+function getHeaders() {
+  const token = localStorage.getItem('token')
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  }
+}
+
+async function fetchUnreadCount() {
+  try {
+    const res = await fetch(`${API}/api/notifications/unread-count`, { headers: getHeaders() })
+    if (res.ok) {
+      const data = await res.json()
+      unreadCount.value = data.unread_count
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function fetchNotifications() {
+  try {
+    const res = await fetch(`${API}/api/notifications?limit=10`, { headers: getHeaders() })
+    if (res.ok) {
+      notifications.value = await res.json()
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function toggleNotifs() {
+  showNotifDropdown.value = !showNotifDropdown.value
+  if (showNotifDropdown.value) {
+    await fetchNotifications()
+    if (unreadCount.value > 0) {
+      try {
+        await fetch(`${API}/api/notifications/read-all`, {
+          method: 'PUT',
+          headers: getHeaders()
+        })
+        unreadCount.value = 0
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }
+}
+
+function getNotifText(notif) {
+  const actor = notif.actor?.display_name || notif.actor?.username || 'Quelqu\'un'
+  switch (notif.type) {
+    case 'like': return `${actor} a aimé votre post`
+    case 'comment': return `${actor} a commenté votre post`
+    case 'follow': return `${actor} vous suit`
+    default: return `${actor} — ${notif.type}`
+  }
+}
+
+function formatTimeAgo(dateStr) {
+  const now = new Date()
+  const date = new Date(dateStr)
+  const diff = Math.floor((now - date) / 1000)
+  if (diff < 60) return 'à l\'instant'
+  if (diff < 3600) return `${Math.floor(diff / 60)}min`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  return `${Math.floor(diff / 86400)}j`
+}
 
 function toggleDark() {
-  dark.value = !dark.value;
+  dark.value = !dark.value
 }
+
+function isActive(path) {
+  return route.path === path
+}
+
+const hideNav = computed(() =>
+  ['/login', '/register', '/forgot-password'].includes(route.path)
+)
 
 onMounted(async () => {
   const token = localStorage.getItem('token')
   if (token) {
     try {
       await userStore.fetchUser()
+      await fetchUnreadCount()
     } catch {
       localStorage.removeItem('token')
       router.push('/login')
@@ -27,32 +119,153 @@ onMounted(async () => {
 </script>
 
 <template>
-  <nav v-if="!['/login', '/register', '/forgot-password'].includes(route.path)" :class="dark ? 'bg-gray-800 text-white border-blue-300' : 'bg-rose-50 border-gray-800'" class="flex justify-between items-center h-24 px-4 border-b-4">
-    <router-link to="/profile">
-      <div class="rounded-full p-2 bg-black">
-        <img src="/def_user.png" class="h-8 w-8"/>
-      </div>
-    </router-link>
-    <div class="flex gap-12">
-      <router-link to="/">
-        <p>Accueil</p>
-      </router-link>
-      <router-link to="/post">
-        <p>Post</p>
-      </router-link>
-      <router-link to="/game">
-        <p>Game</p>
-      </router-link>
-    </div>
-    <button @click="toggleDark">
-      <div :class="dark ? 'bg-gray-600' : 'bg-rose-200'" class="rounded-full p-2">
+  <nav
+    v-if="!hideNav"
+    :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-rose-50 border-rose-200'"
+    class="flex justify-between items-center h-16 px-6 border-b sticky top-0 z-50"
+  >
+    <router-link to="/profile" class="flex items-center gap-3 group">
+      <div class="relative">
         <img
-          :src="dark ? '/sun.svg' : '/moon.svg'"
-          class="h-8 w-8"
+          :src="avatarSrc"
+          :class="dark ? 'ring-gray-700 group-hover:ring-rose-400' : 'ring-rose-100 group-hover:ring-rose-400'"
+          class="h-9 w-9 rounded-full object-cover ring-2 transition-all"
+        />
+        <div
+          v-if="user?.is_online"
+          :class="dark ? 'border-gray-900' : 'border-rose-50'"
+          class="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-400 rounded-full border-2"
         />
       </div>
-    </button>
+      <span
+        :class="dark ? 'text-white/70 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'"
+        class="text-sm font-medium transition-colors hidden sm:block"
+      >
+        {{ user?.display_name || user?.username || '' }}
+      </span>
+    </router-link>
+
+    <div class="flex items-center gap-1">
+      <router-link
+        v-for="link in [
+          { to: '/', label: 'Accueil' },
+          { to: '/post', label: 'Post' },
+          { to: '/game', label: 'Game' }
+        ]"
+        :key="link.to"
+        :to="link.to"
+        :class="[
+          isActive(link.to)
+            ? (dark ? 'text-white bg-white/10' : 'text-rose-600 bg-rose-100')
+            : (dark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-rose-100/50')
+        ]"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+      >
+        {{ link.label }}
+      </router-link>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Notifications bell -->
+      <div class="relative">
+        <button
+          @click="toggleNotifs"
+          :class="dark ? 'text-white/50 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-700 hover:bg-rose-100/50'"
+          class="relative p-2 rounded-lg transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span
+            v-if="unreadCount > 0"
+            class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-full px-1"
+          >
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
+        </button>
+
+        <div
+          v-if="showNotifDropdown"
+          :class="dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'"
+          class="absolute right-0 mt-2 w-80 rounded-xl shadow-xl border overflow-hidden z-50"
+        >
+          <div
+            :class="dark ? 'border-gray-700' : 'border-gray-100'"
+            class="px-4 py-3 border-b flex items-center justify-between"
+          >
+            <span :class="dark ? 'text-white' : 'text-gray-800'" class="text-sm font-semibold">Notifications</span>
+            <button
+              @click="showNotifDropdown = false"
+              :class="dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'"
+              class="text-xs"
+            >
+              Fermer
+            </button>
+          </div>
+          <div class="max-h-80 overflow-y-auto">
+            <div
+              v-if="notifications.length === 0"
+              :class="dark ? 'text-gray-500' : 'text-gray-400'"
+              class="px-4 py-8 text-center text-sm"
+            >
+              Aucune notification
+            </div>
+            <div
+              v-for="notif in notifications"
+              :key="notif.id"
+              :class="[
+                notif.is_read
+                  ? (dark ? 'bg-gray-800' : 'bg-white')
+                  : (dark ? 'bg-gray-750 bg-rose-500/5' : 'bg-rose-50/50'),
+                dark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-50 hover:bg-gray-50'
+              ]"
+              class="px-4 py-3 border-b transition-colors flex items-start gap-3"
+            >
+              <img
+                :src="notif.actor?.avatar_url?.startsWith('/uploads') ? `${API}${notif.actor.avatar_url}` : (notif.actor?.avatar_url || '/def_user.png')"
+                class="h-8 w-8 rounded-full object-cover flex-shrink-0 mt-0.5"
+              />
+              <div class="flex-1 min-w-0">
+                <p :class="dark ? 'text-gray-200' : 'text-gray-700'" class="text-sm leading-snug">{{ getNotifText(notif) }}</p>
+                <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-xs mt-0.5">{{ formatTimeAgo(notif.created_at) }}</p>
+              </div>
+              <div v-if="!notif.is_read" class="h-2 w-2 rounded-full bg-rose-400 flex-shrink-0 mt-2" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        @click="toggleDark"
+        :class="dark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-rose-200 hover:bg-rose-300'"
+        class="p-2 rounded-full transition-all"
+      >
+        <svg v-if="!dark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          :class="dark ? 'stroke-white' : 'stroke-gray-700'"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="white"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+    </div>
   </nav>
+
+  <div v-if="showNotifDropdown" class="fixed inset-0 z-40" @click="showNotifDropdown = false" />
+
   <router-view />
 </template>
 
