@@ -8,6 +8,12 @@ function getHeaders() {
   }
 }
 
+function getAuthHeader() {
+  const token = localStorage.getItem('token')
+  return token ? { 'Authorization': `Bearer ${token}` } : {}
+}
+
+
 export async function login(username, password) {
   const formData = new URLSearchParams()
   formData.append('username', username)
@@ -38,12 +44,12 @@ export async function register(username, email, password) {
         else if (e.msg.includes('value is not a valid email address: An email address must have an @-sign.')) return 'Adresse email invalide'
         return e.msg
       })
-      throw new Error(messages[0]);
+      throw new Error(messages[0])
     } else {
-        const msg = data.detail
-        if (msg === 'Username already registered') throw new Error("Le nom d'utilisateur existe déjà")
-        else if (msg === 'Email already registered') throw new Error('Cet email est déjà lié à un autre compte')
-        throw new Error(msg)
+      const msg = data.detail
+      if (msg === 'Username already registered') throw new Error("Le nom d'utilisateur existe déjà")
+      else if (msg === 'Email already registered') throw new Error('Cet email est déjà lié à un autre compte')
+      throw new Error(msg)
     }
   }
   return data
@@ -55,18 +61,86 @@ export async function getProfile() {
   return res.json()
 }
 
-export async function getPosts() {
-  const res = await fetch(`${API}/api/posts`, { headers: getHeaders() })
+export async function updateProfile(data) {
+  const res = await fetch(`${API}/api/users/me`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) throw new Error('Erreur mise à jour profil')
+  return res.json()
+}
+
+export async function getUserStats(userId) {
+  const res = await fetch(`${API}/api/users/${userId}/stats`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur stats')
+  return res.json()
+}
+
+export async function getUsers(search = '') {
+  const query = search ? `?search=${encodeURIComponent(search)}` : ''
+  const res = await fetch(`${API}/api/users/${query}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur users')
+  return res.json()
+}
+
+
+export async function uploadAvatar(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API}/api/users/me/avatar`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    body: formData
+  })
+  if (!res.ok) throw new Error('Erreur upload avatar')
+  return res.json()
+}
+
+export async function uploadBanner(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API}/api/users/me/banner`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    body: formData
+  })
+  if (!res.ok) throw new Error('Erreur upload bannière')
+  return res.json()
+}
+
+
+export async function getPosts(skip = 0, limit = 50) {
+  const res = await fetch(`${API}/api/posts/?skip=${skip}&limit=${limit}`, { headers: getHeaders() })
+  return res.json()
+}
+
+export async function getFollowingPosts() {
+  const res = await fetch(`${API}/api/posts/following`, { headers: getHeaders() })
+  return res.json()
+}
+
+export async function getUserPosts(userId) {
+  const res = await fetch(`${API}/api/posts/user/${userId}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur posts utilisateur')
   return res.json()
 }
 
 export async function createPost(content) {
-  const res = await fetch(`${API}/api/posts`, {
+  const res = await fetch(`${API}/api/posts/`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ content })
   })
   return res.json()
+}
+
+export async function deletePost(postId) {
+  const res = await fetch(`${API}/api/posts/${postId}`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur suppression post')
 }
 
 export async function likePost(postId) {
@@ -77,10 +151,81 @@ export async function likePost(postId) {
   return res.json()
 }
 
+export async function unlikePost(postId) {
+  const res = await fetch(`${API}/api/posts/${postId}/like`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  })
+  if (!res.ok && res.status !== 204) throw new Error('Erreur unlike')
+}
+
+
+export async function getComments(postId) {
+  const res = await fetch(`${API}/api/comments/post/${postId}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur commentaires')
+  return res.json()
+}
+
+export async function createComment(postId, content) {
+  const res = await fetch(`${API}/api/comments/`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ post_id: postId, content })
+  })
+  if (!res.ok) throw new Error('Erreur création commentaire')
+  return res.json()
+}
+
+
 export async function followUser(userId) {
   const res = await fetch(`${API}/api/social/follow/${userId}`, {
     method: 'POST',
     headers: getHeaders()
   })
+  return res.json()
+}
+
+export async function unfollowUser(userId) {
+  const res = await fetch(`${API}/api/social/unfollow/${userId}`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  })
+  if (!res.ok && res.status !== 204) throw new Error('Erreur unfollow')
+}
+
+export async function isFollowing(userId) {
+  const res = await fetch(`${API}/api/social/is-following/${userId}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur check follow')
+  return res.json()
+}
+
+export async function getFollowers(userId) {
+  const res = await fetch(`${API}/api/social/followers/${userId}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur followers')
+  return res.json()
+}
+
+export async function getFollowing(userId) {
+  const res = await fetch(`${API}/api/social/following/${userId}`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur following')
+  return res.json()
+}
+
+export async function getSuggestions() {
+  const res = await fetch(`${API}/api/social/suggestions`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur suggestions')
+  return res.json()
+}
+
+
+export async function getNotifications() {
+  const res = await fetch(`${API}/api/notifications`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur notifications')
+  return res.json()
+}
+
+export async function getUnreadCount() {
+  const res = await fetch(`${API}/api/notifications/unread-count`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur unread count')
   return res.json()
 }
