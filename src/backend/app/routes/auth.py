@@ -5,11 +5,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.database import get_db
 from app.models import User
-from app.schemas import UserCreate, UserResponse, LoginRequest, Token
+from app.schemas import UserCreate, UserResponse, LoginRequest, Token, RefreshTokenRequest
 from app.auth import (
     get_password_hash,
     authenticate_user,
     create_access_token,
+    create_refresh_token,
+    verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_active_user
 )
@@ -81,12 +83,13 @@ async def login(
         data={"sub": user.username},
         expires_delta=access_token_expires
     )
+    refresh_token = create_refresh_token(data={"sub": user.username})
     
     # Update user online status
     user.is_online = True
     db.commit()
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
 
 
 @router.post("/logout")
@@ -101,8 +104,44 @@ async def logout(
 
 
 @router.get("/verify", response_model=UserResponse)
-async def verify_token(
+async def verify_token_endpoint(
     current_user: User = Depends(get_current_active_user)
 ):
     """Verify the current token and return user info"""
     return current_user
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_access_token(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Exchange a refresh token for a new access token"""
+    credentials_error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        from jose import jwt as jose_jwt
+        from app.auth import SECRET_KEY, ALGORITHM
+        payload = jose_jwt.decode(body.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise credentials_error
+        username: str = payload.get("sub")
+        if not username:
+            raise credentials_error
+    except Exception:
+        raise credentials_error
+
+    user = db.query(User).filter(User.username == username, User.is_active == True).first()
+    if not user:
+        raise credentials_error
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=access_token_expires
+    )
+    new_refresh_token = create_refresh_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
