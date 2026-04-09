@@ -25,15 +25,26 @@ const avatarUrl = ref('')
 
 const API = 'http://localhost:8000'
 
+
 onMounted(async () => {
   if (!user.value) return
-
-  avatarUrl.value = user.value.avatar_url
-    ? (user.value.avatar_url.startsWith('http') ? user.value.avatar_url : `${API}${user.value.avatar_url}`)
-    : ''
-  bannerUrl.value = user.value.banner_url
-    ? (user.value.banner_url.startsWith('http') ? user.value.banner_url : `${API}${user.value.banner_url}`)
-    : ''
+  
+  if (user.value.avatar_url && user.value.avatar_url !== '/def_user.png') {
+    avatarUrl.value = user.value.avatar_url.startsWith('http')
+    ? user.value.avatar_url
+    : `${API}${user.value.avatar_url}`
+  } else {
+    avatarUrl.value = '/def_user.png'
+  }
+  
+  console.log('banner_url brut:', user.value.banner_url, typeof user.value.banner_url)
+  if (user.value.banner_url && user.value.banner_url !== '' && user.value.banner_url !== 'null') {
+    bannerUrl.value = user.value.banner_url.startsWith('http')
+      ? user.value.banner_url
+      : `${API}${user.value.banner_url}`
+  } else {
+    bannerUrl.value = ''
+  }
 
   try {
     const data = await getUserStats(user.value.id)
@@ -75,7 +86,6 @@ async function onAvatarChange(e) {
     await userStore.fetchUser()
   } catch (err) {
     console.error('Erreur upload avatar:', err)
-    avatarUrl.value = URL.createObjectURL(file)
   }
 }
 
