@@ -13,6 +13,7 @@ function getAuthHeader() {
   return token ? { 'Authorization': `Bearer ${token}` } : {}
 }
 
+// ── Auth ──
 
 export async function login(username, password) {
   const formData = new URLSearchParams()
@@ -54,6 +55,8 @@ export async function register(username, email, password) {
   }
   return data
 }
+
+// ── User / Profile ──
 
 export async function getProfile() {
   const res = await fetch(`${API}/api/users/me`, { headers: getHeaders() })
@@ -227,5 +230,38 @@ export async function getNotifications() {
 export async function getUnreadCount() {
   const res = await fetch(`${API}/api/notifications/unread-count`, { headers: getHeaders() })
   if (!res.ok) throw new Error('Erreur unread count')
+  return res.json()
+}
+
+
+export async function getConversations() {
+  const res = await fetch(`${API}/api/messages/conversations`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur conversations')
+  return res.json()
+}
+
+export async function getOrCreateConversation(userId) {
+  const res = await fetch(`${API}/api/messages/conversations/${userId}`, {
+    method: 'POST',
+    headers: getHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur création conversation')
+  return res.json()
+}
+
+export async function getMessages(convId, skip = 0, limit = 50) {
+  const res = await fetch(`${API}/api/messages/conversations/${convId}/messages?skip=${skip}&limit=${limit}`, {
+    headers: getHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur messages')
+  return res.json()
+}
+
+export async function markConversationRead(convId) {
+  const res = await fetch(`${API}/api/messages/conversations/${convId}/read`, {
+    method: 'PUT',
+    headers: getHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur mark read')
   return res.json()
 }
