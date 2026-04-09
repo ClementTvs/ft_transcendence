@@ -119,6 +119,7 @@ async def get_user_stats(
         "display_name": user.display_name,
         "bio": user.bio,
         "avatar_url": user.avatar_url,
+        "banner_url": user.banner_url,
         "is_active": user.is_active,
         "is_online": user.is_online,
         "created_at": user.created_at,
