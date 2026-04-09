@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
+import { getUsers } from './api'
 
 const dark = ref(false)
 const userStore = useUserStore()
@@ -12,16 +13,31 @@ const showNotifDropdown = ref(false)
 const notifications = ref([])
 const unreadCount = ref(0)
 
+const searchQuery = ref('')
+const searchResults = ref([])
+const showSearchResults = ref(false)
+const searching = ref(false)
+let searchTimeout = null
+
 const API = 'http://localhost:8000'
 
 const user = computed(() => userStore.user)
 
 const avatarSrc = computed(() => {
   if (!user.value?.avatar_url) return '/def_user.png'
+  if (user.value.avatar_url === '/def_user.png') return '/def_user.png'
   if (user.value.avatar_url.startsWith('http')) return user.value.avatar_url
-  if (user.value.avatar_url.startsWith('/uploads')) return `${API}${user.value.avatar_url}`
+  if (user.value.avatar_url.startsWith('/')) return `${API}${user.value.avatar_url}`
   return user.value.avatar_url
 })
+
+function avatarUrl(u) {
+  if (!u?.avatar_url) return '/def_user.png'
+  if (u.avatar_url === '/def_user.png') return '/def_user.png'
+  if (u.avatar_url.startsWith('http')) return u.avatar_url
+  if (u.avatar_url.startsWith('/')) return `${API}${u.avatar_url}`
+  return u.avatar_url
+}
 
 function getHeaders() {
   const token = localStorage.getItem('token')
@@ -29,6 +45,42 @@ function getHeaders() {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` })
   }
+}
+
+watch(searchQuery, (val) => {
+  clearTimeout(searchTimeout)
+  if (!val.trim()) {
+    searchResults.value = []
+    showSearchResults.value = false
+    return
+  }
+  searching.value = true
+  searchTimeout = setTimeout(async () => {
+    try {
+      const results = await getUsers(val.trim())
+      searchResults.value = results.filter(u => u.id !== user.value?.id).slice(0, 6)
+      showSearchResults.value = true
+    } catch (e) {
+      console.error(e)
+      searchResults.value = []
+    } finally {
+      searching.value = false
+    }
+  }, 300)
+})
+
+function goToUser(userId) {
+  searchQuery.value = ''
+  showSearchResults.value = false
+  if (userId === user.value?.id) {
+    router.push('/profile')
+  } else {
+    router.push(`/user/${userId}`)
+  }
+}
+
+function closeSearch() {
+  showSearchResults.value = false
 }
 
 async function fetchUnreadCount() {
@@ -124,7 +176,7 @@ onMounted(async () => {
     :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-rose-50 border-rose-200'"
     class="flex justify-between items-center h-16 px-6 border-b sticky top-0 z-50"
   >
-    <router-link to="/profile" class="flex items-center gap-3 group">
+    <router-link to="/profile" class="flex items-center gap-3 group flex-shrink-0">
       <div class="relative">
         <img
           :src="avatarSrc"
@@ -139,7 +191,7 @@ onMounted(async () => {
       </div>
       <span
         :class="dark ? 'text-white/70 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'"
-        class="text-sm font-medium transition-colors hidden sm:block"
+        class="text-sm font-medium transition-colors hidden xl:block"
       >
         {{ user?.display_name || user?.username || '' }}
       </span>
@@ -150,6 +202,7 @@ onMounted(async () => {
         v-for="link in [
           { to: '/', label: 'Accueil' },
           { to: '/post', label: 'Post' },
+          { to: '/chat', label: 'Chat' },
           { to: '/game', label: 'Game' }
         ]"
         :key="link.to"
@@ -165,8 +218,66 @@ onMounted(async () => {
       </router-link>
     </div>
 
-    <div class="flex items-center gap-2">
-      <!-- Notifications bell -->
+    <div class="flex items-center gap-2 flex-shrink-0">
+
+      <div class="relative hidden sm:block">
+        <div class="relative">
+          <svg
+            xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            :class="dark ? 'text-gray-500' : 'text-rose-300'"
+            class="absolute left-3 top-1/2 -translate-y-1/2"
+          >
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            v-model="searchQuery"
+            @focus="searchQuery.trim() && (showSearchResults = true)"
+            placeholder="Rechercher..."
+            :class="dark
+              ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-gray-600'
+              : 'bg-white border-rose-100 text-gray-800 placeholder-rose-300 focus:border-rose-300'"
+            class="w-44 focus:w-56 pl-9 pr-3 py-1.5 rounded-full border text-sm focus:outline-none transition-all"
+          />
+        </div>
+
+        <div
+          v-if="showSearchResults && searchQuery.trim()"
+          :class="dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'"
+          class="absolute top-full right-0 mt-2 w-72 rounded-xl shadow-xl border overflow-hidden z-50"
+        >
+          <div v-if="searching" class="px-4 py-4 text-center text-gray-400 text-sm">Recherche...</div>
+          <div v-else-if="searchResults.length === 0" class="px-4 py-4 text-center text-gray-400 text-sm">
+            Aucun résultat pour "{{ searchQuery }}"
+          </div>
+          <div v-else>
+            <button
+              v-for="result in searchResults"
+              :key="result.id"
+              @click="goToUser(result.id)"
+              :class="dark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+            >
+              <img :src="avatarUrl(result)" class="h-8 w-8 rounded-full object-cover flex-shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm truncate">
+                  {{ result.display_name || result.username }}
+                </p>
+                <p class="text-gray-400 text-xs truncate">@{{ result.username }}</p>
+              </div>
+              <span
+                v-if="result.is_online"
+                class="text-[10px] text-green-500 font-medium flex items-center gap-1 flex-shrink-0"
+              >
+                <span class="h-1.5 w-1.5 rounded-full bg-green-400"></span>
+                En ligne
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="relative">
         <button
           @click="toggleNotifs"
@@ -181,9 +292,7 @@ onMounted(async () => {
           <span
             v-if="unreadCount > 0"
             class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-full px-1"
-          >
-            {{ unreadCount > 99 ? '99+' : unreadCount }}
-          </span>
+          >{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
         </button>
 
         <div
@@ -191,42 +300,23 @@ onMounted(async () => {
           :class="dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'"
           class="absolute right-0 mt-2 w-80 rounded-xl shadow-xl border overflow-hidden z-50"
         >
-          <div
-            :class="dark ? 'border-gray-700' : 'border-gray-100'"
-            class="px-4 py-3 border-b flex items-center justify-between"
-          >
+          <div :class="dark ? 'border-gray-700' : 'border-gray-100'" class="px-4 py-3 border-b flex items-center justify-between">
             <span :class="dark ? 'text-white' : 'text-gray-800'" class="text-sm font-semibold">Notifications</span>
-            <button
-              @click="showNotifDropdown = false"
-              :class="dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'"
-              class="text-xs"
-            >
-              Fermer
-            </button>
+            <button @click="showNotifDropdown = false" :class="dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'" class="text-xs">Fermer</button>
           </div>
           <div class="max-h-80 overflow-y-auto">
-            <div
-              v-if="notifications.length === 0"
-              :class="dark ? 'text-gray-500' : 'text-gray-400'"
-              class="px-4 py-8 text-center text-sm"
-            >
-              Aucune notification
-            </div>
+            <div v-if="notifications.length === 0" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="px-4 py-8 text-center text-sm">Aucune notification</div>
             <div
               v-for="notif in notifications"
               :key="notif.id"
               :class="[
-                notif.is_read
-                  ? (dark ? 'bg-gray-800' : 'bg-white')
-                  : (dark ? 'bg-gray-750 bg-rose-500/5' : 'bg-rose-50/50'),
+                notif.is_read ? (dark ? 'bg-gray-800' : 'bg-white') : (dark ? 'bg-rose-500/5' : 'bg-rose-50/50'),
                 dark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-50 hover:bg-gray-50'
               ]"
-              class="px-4 py-3 border-b transition-colors flex items-start gap-3"
+              class="px-4 py-3 border-b transition-colors flex items-start gap-3 cursor-pointer"
+              @click="notif.actor && goToUser(notif.actor.id); showNotifDropdown = false"
             >
-              <img
-                :src="notif.actor?.avatar_url?.startsWith('/uploads') ? `${API}${notif.actor.avatar_url}` : (notif.actor?.avatar_url || '/def_user.png')"
-                class="h-8 w-8 rounded-full object-cover flex-shrink-0 mt-0.5"
-              />
+              <img :src="avatarUrl(notif.actor)" class="h-8 w-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
               <div class="flex-1 min-w-0">
                 <p :class="dark ? 'text-gray-200' : 'text-gray-700'" class="text-sm leading-snug">{{ getNotifText(notif) }}</p>
                 <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-xs mt-0.5">{{ formatTimeAgo(notif.created_at) }}</p>
@@ -243,28 +333,23 @@ onMounted(async () => {
         class="p-2 rounded-full transition-all"
       >
         <svg v-if="!dark" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-          :class="dark ? 'stroke-white' : 'stroke-gray-700'"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-700">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
         <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-          stroke="white"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="5"/>
-          <line x1="12" y1="1" x2="12" y2="3"/>
-          <line x1="12" y1="21" x2="12" y2="23"/>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-          <line x1="1" y1="12" x2="3" y2="12"/>
-          <line x1="21" y1="12" x2="23" y2="12"/>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
       </button>
     </div>
   </nav>
 
   <div v-if="showNotifDropdown" class="fixed inset-0 z-40" @click="showNotifDropdown = false" />
+  <div v-if="showSearchResults" class="fixed inset-0 z-40" @click="closeSearch" />
 
   <router-view />
 </template>
