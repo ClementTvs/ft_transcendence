@@ -193,6 +193,20 @@ async def delete_post(
     return None
 
 
+@router.get("/{post_id}/likes", response_model=List[UserResponse])
+async def get_post_likes(
+    post_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Get the list of users who liked a specific post"""
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return [like.user for like in post.likes[skip: skip + limit]]
+
+
 @router.post("/{post_id}/like", status_code=status.HTTP_201_CREATED)
 async def like_post(
     post_id: int,
