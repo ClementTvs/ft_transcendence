@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { useThemeStore } from '../stores/theme'
 import {
   getUserStats, getUserPosts, isFollowing, followUser, unfollowUser,
   getOrCreateConversation
@@ -10,7 +11,9 @@ import {
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const themeStore = useThemeStore()
 const me = computed(() => userStore.user)
+const dark = computed(() => themeStore.dark)
 
 const API = 'http://localhost:8000'
 
@@ -48,8 +51,6 @@ async function loadProfile(userId) {
   try {
     const data = await getUserStats(userId)
     profile.value = data
-    console.log('profile data:', data)
-    console.log('banner_url:', data.banner_url)
     stats.value = {
       post_count: data.post_count,
       follower_count: data.follower_count,
@@ -108,14 +109,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-rose-50">
+  <div :class="dark ? 'bg-gray-950' : 'bg-rose-50'" class="min-h-screen">
 
     <div v-if="loading" class="flex items-center justify-center py-32">
-      <p class="text-gray-400 text-sm">Chargement...</p>
+      <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-sm">Chargement...</p>
     </div>
 
     <div v-else-if="!profile" class="flex flex-col items-center justify-center py-32">
-      <p class="text-gray-400 text-lg mb-2">Utilisateur introuvable</p>
+      <p :class="dark ? 'text-gray-400' : 'text-gray-400'" class="text-lg mb-2">Utilisateur introuvable</p>
       <button @click="router.push('/')" class="text-rose-500 text-sm hover:text-rose-600">Retour à l'accueil</button>
     </div>
 
@@ -130,7 +131,7 @@ onMounted(() => {
       <div class="max-w-2xl mx-auto px-6">
 
         <div class="flex items-end justify-between">
-          <div class="w-28 h-28 -mt-14 rounded-full border-4 border-rose-50 bg-gray-800 overflow-hidden">
+          <div :class="dark ? 'border-gray-950' : 'border-rose-50'" class="w-28 h-28 -mt-14 rounded-full border-4 bg-gray-800 overflow-hidden">
             <img :src="avatarUrl(profile)" alt="Avatar" class="w-full h-full object-cover" />
           </div>
 
@@ -138,7 +139,8 @@ onMounted(() => {
             <router-link
               v-if="isOwnProfile"
               to="/profile"
-              class="px-5 py-2 rounded-full border border-rose-200 text-sm font-medium text-gray-800 hover:bg-gray-800 hover:text-rose-50 hover:border-gray-800 transition-all"
+              :class="dark ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-500' : 'border-rose-200 text-gray-800 hover:bg-gray-800 hover:text-rose-50 hover:border-gray-800'"
+              class="px-5 py-2 rounded-full border text-sm font-medium transition-all"
             >
               Modifier le profil
             </router-link>
@@ -146,7 +148,8 @@ onMounted(() => {
             <template v-else>
               <button
                 @click="handleDM"
-                class="p-2 rounded-full border border-gray-300 text-gray-500 hover:text-rose-500 hover:border-rose-300 hover:bg-rose-50 transition-all"
+                :class="dark ? 'border-gray-600 text-gray-400 hover:text-rose-400 hover:border-rose-400 hover:bg-rose-500/10' : 'border-gray-300 text-gray-500 hover:text-rose-500 hover:border-rose-300 hover:bg-rose-50'"
+                class="p-2 rounded-full border transition-all"
                 title="Envoyer un message"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -159,7 +162,7 @@ onMounted(() => {
                 @click="handleFollow"
                 :disabled="followLoading"
                 :class="following
-                  ? 'border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                  ? (dark ? 'border-gray-600 text-gray-300 hover:border-red-400 hover:text-red-400 hover:bg-red-500/10' : 'border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-500 hover:bg-red-50')
                   : 'bg-gray-900 text-white hover:bg-gray-800 border-gray-900'"
                 class="px-5 py-2 rounded-full border text-sm font-semibold transition-all"
               >
@@ -169,9 +172,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Info -->
         <div class="mt-3">
-          <h1 class="text-2xl font-bold text-gray-900">{{ profile.display_name || profile.username }}</h1>
+          <h1 :class="dark ? 'text-white' : 'text-gray-900'" class="text-2xl font-bold">{{ profile.display_name || profile.username }}</h1>
           <p class="text-sm text-gray-400">@{{ profile.username }}</p>
           <div class="flex items-center gap-2 mt-1">
             <span v-if="profile.is_online" class="inline-flex items-center gap-1 text-xs text-green-500 font-medium">
@@ -179,42 +181,41 @@ onMounted(() => {
             </span>
             <span v-else class="text-xs text-gray-400">Hors ligne</span>
           </div>
-          <p v-if="profile.bio" class="text-sm text-gray-600 mt-2 leading-relaxed">{{ profile.bio }}</p>
+          <p v-if="profile.bio" :class="dark ? 'text-gray-400' : 'text-gray-600'" class="text-sm mt-2 leading-relaxed">{{ profile.bio }}</p>
         </div>
 
-        <!-- Stats -->
-        <div class="flex items-center gap-6 mt-4 py-4 border-b border-rose-200/60">
+        <div :class="dark ? 'border-gray-700' : 'border-rose-200/60'" class="flex items-center gap-6 mt-4 py-4 border-b">
           <div class="text-center">
-            <div class="text-lg font-bold text-gray-900">{{ stats.post_count }}</div>
-            <div class="text-xs text-rose-300 uppercase tracking-wide">Posts</div>
+            <div :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">{{ stats.post_count }}</div>
+            <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Posts</div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-bold text-gray-900">{{ stats.follower_count }}</div>
-            <div class="text-xs text-rose-300 uppercase tracking-wide">Followers</div>
+            <div :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">{{ stats.follower_count }}</div>
+            <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Followers</div>
           </div>
           <div class="text-center">
-            <div class="text-lg font-bold text-gray-900">{{ stats.following_count }}</div>
-            <div class="text-xs text-rose-300 uppercase tracking-wide">Following</div>
+            <div :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">{{ stats.following_count }}</div>
+            <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Following</div>
           </div>
         </div>
 
-        <!-- Posts -->
         <div class="py-4">
-          <div v-if="posts.length === 0" class="text-center py-12 text-gray-400 text-sm">Aucun post</div>
+          <div v-if="posts.length === 0" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-center py-12 text-sm">Aucun post</div>
           <div
             v-for="post in posts" :key="post.id"
-            class="bg-white rounded-xl border border-rose-100 p-4 mb-3 hover:shadow-md hover:shadow-rose-100/50 transition-shadow"
+            :class="dark ? 'bg-gray-900 border-gray-700 hover:shadow-gray-900/50' : 'bg-white border-rose-100 hover:shadow-rose-100/50'"
+            class="rounded-xl border p-4 mb-3 hover:shadow-md transition-shadow"
           >
             <div class="flex items-center gap-3 mb-3">
               <img :src="avatarUrl(post.author)" class="h-10 w-10 rounded-full object-cover flex-shrink-0" />
               <div>
-                <span class="font-semibold text-gray-900 text-sm">{{ post.author?.display_name || post.author?.username }}</span>
+                <span :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm">{{ post.author?.display_name || post.author?.username }}</span>
                 <span class="ml-2 text-gray-400 text-xs">{{ formatDate(post.created_at) }}</span>
               </div>
             </div>
-            <p class="text-gray-800 text-[15px] leading-relaxed whitespace-pre-wrap">{{ post.content }}</p>
+            <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-[15px] leading-relaxed whitespace-pre-wrap">{{ post.content }}</p>
             <div class="flex gap-6 mt-3">
-              <span class="flex items-center gap-1.5 text-gray-400 text-xs">
+              <span :class="dark ? 'text-gray-500' : 'text-gray-400'" class="flex items-center gap-1.5 text-xs">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
                   :fill="post.is_liked ? 'currentColor' : 'none'" :class="post.is_liked ? 'text-rose-500' : ''"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -222,7 +223,7 @@ onMounted(() => {
                 </svg>
                 {{ post.like_count }}
               </span>
-              <span class="flex items-center gap-1.5 text-gray-400 text-xs">
+              <span :class="dark ? 'text-gray-500' : 'text-gray-400'" class="flex items-center gap-1.5 text-xs">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>

@@ -1,11 +1,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../stores/user'
+import { useThemeStore } from '../stores/theme'
 import { useRouter } from 'vue-router'
 import { getUserStats, getUserPosts, uploadAvatar, uploadBanner } from '../api'
 
 const userStore = useUserStore()
+const themeStore = useThemeStore()
 const router = useRouter()
+const dark = computed(() => themeStore.dark)
 
 const activeTab = ref('posts')
 const bannerInput = ref(null)
@@ -100,7 +103,7 @@ function formatDate(dateStr) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-rose-50 pb-16">
+  <div :class="dark ? 'bg-gray-950' : 'bg-rose-50'" class="min-h-screen pb-16">
 
     <div
       class="relative w-full h-48 cursor-pointer overflow-hidden group"
@@ -125,7 +128,8 @@ function formatDate(dateStr) {
     <div class="max-w-2xl mx-auto px-6">
 
       <div
-        class="relative w-28 h-28 -mt-14 rounded-full border-4 border-rose-50 bg-gray-800 cursor-pointer overflow-hidden group/avatar"
+        :class="dark ? 'border-gray-950' : 'border-rose-50'"
+        class="relative w-28 h-28 -mt-14 rounded-full border-4 bg-gray-800 cursor-pointer overflow-hidden group/avatar"
         @click="avatarInput?.click()"
       >
         <img v-if="avatarUrl" :src="avatarUrl" alt="Avatar" class="w-full h-full object-cover" />
@@ -148,13 +152,14 @@ function formatDate(dateStr) {
 
       <div class="flex items-center justify-between mt-4 gap-4 flex-wrap">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">{{ user?.display_name || user?.username || 'Utilisateur' }}</h1>
+          <h1 :class="dark ? 'text-white' : 'text-gray-900'" class="text-2xl font-bold">{{ user?.display_name || user?.username || 'Utilisateur' }}</h1>
           <p v-if="user?.display_name" class="text-sm text-gray-400">@{{ user?.username }}</p>
-          <p class="text-sm text-gray-400 mt-0.5">{{ user?.bio || 'Aucune bio pour le moment.' }}</p>
+          <p :class="dark ? 'text-gray-400' : 'text-gray-400'" class="text-sm mt-0.5">{{ user?.bio || 'Aucune bio pour le moment.' }}</p>
         </div>
         <button
           @click="goToSettings"
-          class="flex items-center gap-1.5 px-4 py-2 rounded-full border border-rose-200 text-sm font-medium text-gray-800 hover:bg-gray-800 hover:text-rose-50 hover:border-gray-800 transition-all"
+          :class="dark ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-500' : 'border-rose-200 text-gray-800 hover:bg-gray-800 hover:text-rose-50 hover:border-gray-800'"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm font-medium transition-all"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -165,22 +170,22 @@ function formatDate(dateStr) {
         </button>
       </div>
 
-      <div class="flex items-center gap-6 mt-5 py-4 border-b border-rose-200/60">
+      <div :class="dark ? 'border-gray-700' : 'border-rose-200/60'" class="flex items-center gap-6 mt-5 py-4 border-b">
         <div class="text-center">
-          <div class="text-lg font-bold text-gray-900">{{ stats.posts }}</div>
-          <div class="text-xs text-rose-300 uppercase tracking-wide">Posts</div>
+          <div :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">{{ stats.posts }}</div>
+          <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Posts</div>
         </div>
         <div class="text-center">
-          <div class="text-lg font-bold text-gray-900">{{ stats.followers }}</div>
-          <div class="text-xs text-rose-300 uppercase tracking-wide">Followers</div>
+          <div :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">{{ stats.followers }}</div>
+          <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Followers</div>
         </div>
         <div class="text-center">
-          <div class="text-lg font-bold text-gray-900">{{ stats.following }}</div>
-          <div class="text-xs text-rose-300 uppercase tracking-wide">Following</div>
+          <div :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">{{ stats.following }}</div>
+          <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Following</div>
         </div>
       </div>
 
-      <div class="flex border-b border-rose-200/60">
+      <div :class="dark ? 'border-gray-700' : 'border-rose-200/60'" class="flex border-b">
         <button
           v-for="tab in [
             { key: 'posts', label: 'Posts' },
@@ -190,8 +195,8 @@ function formatDate(dateStr) {
           :class="[
             'flex-1 py-3 text-sm font-medium text-center transition-all border-b-2',
             activeTab === tab.key
-              ? 'text-gray-900 border-rose-400'
-              : 'text-rose-300 border-transparent hover:text-gray-600'
+              ? (dark ? 'text-white border-rose-400' : 'text-gray-900 border-rose-400')
+              : (dark ? 'text-gray-500 border-transparent hover:text-gray-300' : 'text-rose-300 border-transparent hover:text-gray-600')
           ]"
           @click="activeTab = tab.key"
         >
@@ -200,37 +205,35 @@ function formatDate(dateStr) {
       </div>
 
       <div class="py-4">
-
         <div v-if="activeTab === 'posts'" class="flex flex-col gap-3">
-          <div v-if="userPosts.length === 0" class="text-center py-12 text-rose-300 text-sm">
+          <div v-if="userPosts.length === 0" :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-center py-12 text-sm">
             Aucun post pour le moment.
           </div>
           <div
             v-for="post in userPosts"
             :key="post.id"
-            class="bg-white rounded-xl border border-rose-100 p-4 hover:shadow-md hover:shadow-rose-100/50 transition-shadow"
+            :class="dark ? 'bg-gray-900 border-gray-700 hover:shadow-gray-900/50' : 'bg-white border-rose-100 hover:shadow-rose-100/50'"
+            class="rounded-xl border p-4 hover:shadow-md transition-shadow"
           >
             <div class="flex items-center gap-3 mb-3">
               <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
                 <img v-if="post.author?.avatar_url" :src="post.author.avatar_url.startsWith('http') ? post.author.avatar_url : `${API}${post.author.avatar_url}`" alt="" class="w-full h-full object-cover" />
               </div>
               <div>
-                <span class="font-semibold text-gray-900 text-sm">{{ post.author?.display_name || post.author?.username }}</span>
-                <span class="ml-2 text-rose-300 text-xs">{{ formatDate(post.created_at) }}</span>
+                <span :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm">{{ post.author?.display_name || post.author?.username }}</span>
+                <span :class="dark ? 'text-gray-500' : 'text-rose-300'" class="ml-2 text-xs">{{ formatDate(post.created_at) }}</span>
               </div>
             </div>
-            <p class="text-gray-800 text-sm leading-relaxed mb-3">{{ post.content }}</p>
+            <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-sm leading-relaxed mb-3">{{ post.content }}</p>
             <div class="flex gap-5">
-              <span class="flex items-center gap-1.5 text-rose-300 text-xs">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <span :class="dark ? 'text-gray-500' : 'text-rose-300'" class="flex items-center gap-1.5 text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                 </svg>
                 {{ post.like_count }}
               </span>
-              <span class="flex items-center gap-1.5 text-rose-300 text-xs">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <span :class="dark ? 'text-gray-500' : 'text-rose-300'" class="flex items-center gap-1.5 text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
                 {{ post.comment_count }}
@@ -239,7 +242,7 @@ function formatDate(dateStr) {
           </div>
         </div>
 
-        <div v-if="activeTab === 'likes'" class="text-center py-12 text-rose-300 text-sm">
+        <div v-if="activeTab === 'likes'" :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-center py-12 text-sm">
           Posts likés à venir...
         </div>
       </div>
