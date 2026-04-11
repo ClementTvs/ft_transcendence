@@ -79,13 +79,28 @@ function connectWS() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data)
 
+    if (data.type === 'read_receipt') {
+      if (data.conversation_id === activeConvId.value) {
+        messages.value.forEach(msg => {
+          if (msg.sender_id === me.value?.id) {
+            msg.is_read = true
+          }
+        })
+      }
+      return
+    }
+
     if (data.conversation_id === activeConvId.value) {
       if (!messages.value.find(m => m.id === data.id)) {
         messages.value.push(data)
         scrollToBottom()
       }
-      if (data.sender_id !== me.value?.id) {
-        markConversationRead(activeConvId.value).catch(() => {})
+      // Tell the sender we read it
+      if (data.sender_id !== me.value?.id && ws) {
+        ws.send(JSON.stringify({
+          type: 'mark_read',
+          conversation_id: activeConvId.value
+        }))
       }
     }
 
@@ -113,15 +128,19 @@ async function selectConversation(conv) {
 
   try {
     messages.value = await getMessages(conv.id)
+    messagesLoading.value = false
+    await nextTick()
     scrollToBottom()
 
-    if (conv.unread_count > 0) {
-      await markConversationRead(conv.id)
+    if (conv.unread_count > 0 && ws) {
+      ws.send(JSON.stringify({
+        type: 'mark_read',
+        conversation_id: conv.id
+      }))
       conv.unread_count = 0
     }
   } catch (e) {
     console.error(e)
-  } finally {
     messagesLoading.value = false
   }
 }
@@ -290,26 +309,40 @@ onUnmounted(() => {
             <p class="text-gray-400 text-sm">Aucun message. Dites bonjour !</p>
           </div>
 
-          <div v-else class="flex flex-col gap-1.5">
+          <div v-else class="flex flex-col gap-1.5 w-full">
             <div
               v-for="msg in messages"
               :key="msg.id"
               :class="msg.sender_id === me?.id ? 'items-end' : 'items-start'"
-              class="flex flex-col"
+              class="flex flex-col w-full"
             >
               <div
                 :class="msg.sender_id === me?.id
                   ? 'bg-gray-900 text-white rounded-2xl rounded-br-md'
                   : 'bg-white border border-rose-100 text-gray-800 rounded-2xl rounded-bl-md'"
-                class="max-w-[70%] px-4 py-2.5 shadow-sm"
+                class="max-w-[70%] px-4 py-2.5 shadow-sm overflow-hidden"
+                style="word-break: break-all;"
               >
                 <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ msg.content }}</p>
               </div>
               <span
                 :class="msg.sender_id === me?.id ? 'text-right' : 'text-left'"
-                class="text-[10px] text-gray-400 mt-0.5 px-1"
+                class="text-[10px] text-gray-400 mt-0.5 px-1 flex items-center gap-1"
+                :style="msg.sender_id === me?.id ? 'justify-content: flex-end' : ''"
               >
                 {{ formatTime(msg.created_at) }}
+                <template v-if="msg.sender_id === me?.id">
+                  <svg v-if="msg.is_read" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" class="text-blue-500">
+                    <path d="M18 6L7 17l-5-5"/><path d="M22 10L11 21"/>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                </template>
               </span>
             </div>
           </div>
