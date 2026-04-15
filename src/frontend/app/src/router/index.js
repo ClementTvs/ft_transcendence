@@ -8,6 +8,7 @@ import Login from "../view/Login.vue"
 import ForgotPassword from '../view/ForgotPassword.vue'
 import Register from '../view/Register.vue'
 import Game from '../view/Game.vue'
+import Settings from '../view/Settings.vue'
 import { useUserStore } from '../stores/user'
 
 const router = createRouter({
@@ -19,6 +20,7 @@ const router = createRouter({
     {path: '/chat/:userId?', component: Chat, meta: { requiresAuth:true } },
     {path: '/post', component: Post, meta: { requiresAuth:true } },
     {path: '/game', component: Game, meta: { requiresAuth:true } },
+    {path: '/settings', component: Settings, meta: { requiresAuth:true } },
     {path: '/login', component: Login},
     {path: '/register', component: Register},
     {path: '/forgot-password', component: ForgotPassword}
