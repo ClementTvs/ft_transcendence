@@ -153,7 +153,7 @@ function isActive(path) {
 }
 
 const hideNav = computed(() =>
-  ['/login', '/register', '/forgot-password'].includes(route.path)
+  ['/login', '/register', '/forgot-password', '/settings'].includes(route.path)
 )
 
 onMounted(async () => {
