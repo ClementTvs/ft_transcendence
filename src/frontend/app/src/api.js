@@ -265,3 +265,30 @@ export async function markConversationRead(convId) {
   if (!res.ok) throw new Error('Erreur mark read')
   return res.json()
 }
+
+export async function changePassword(current_password, new_password) {
+  const res = await fetch(`${API}/api/users/me/password`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      current_password,
+      new_password
+    })
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.detail || 'Erreur changement de mot de passe')
+  }
+  return res.json()
+}
+
+export async function deleteAccount() {
+  const res = await fetch(`${API}/api/users/me`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  })
+  if (!res.ok) {
+    throw new Error('Erreur suppression compte')
+  }
+  return true
+}
