@@ -190,6 +190,32 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
         while True:
             data = await websocket.receive_json()
 
+            msg_type = data.get("type")
+            if msg_type == "mark_read":
+                conv_id = data.get("conversation_id")
+                if conv_id:
+                    conv = db.query(Conversation).filter(
+                        Conversation.id == conv_id,
+                        or_(
+                            Conversation.user1_id == user.id,
+                            Conversation.user2_id == user.id,
+                        ),
+                    ).first()
+                    if conv:
+                        db.query(Message).filter(
+                            Message.conversation_id == conv_id,
+                            Message.sender_id != user.id,
+                            Message.is_read == False,
+                        ).update({"is_read": True})
+                        db.commit()
+                        other_id = conv.user2_id if conv.user1_id == user.id else conv.user1_id
+                        await manager.send_to_user(other_id, {
+                            "type": "read_receipt",
+                            "conversation_id": conv_id,
+                            "read_by": user.id,
+                        })
+                continue
+
             to_user_id = data.get("to_user_id")
             conv_id = data.get("conversation_id")
             content = data.get("content", "").strip()
@@ -197,7 +223,6 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
             if not to_user_id or not conv_id or not content:
                 continue
 
-            # Verify the conversation belongs to this user
             conv = db.query(Conversation).filter(
                 Conversation.id == conv_id,
                 or_(
@@ -208,7 +233,6 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
             if not conv:
                 continue
 
-            # Encrypt and persist
             new_msg = Message(
                 conversation_id=conv_id,
                 sender_id=user.id,
@@ -218,7 +242,6 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
             db.commit()
             db.refresh(new_msg)
 
-            # Send plain text to both clients (never the encrypted version)
             payload = {
                 "id": new_msg.id,
                 "conversation_id": conv_id,

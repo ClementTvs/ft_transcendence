@@ -2,9 +2,12 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
+import { useThemeStore } from './stores/theme'
 import { getUsers } from './api'
 
-const dark = ref(false)
+const themeStore = useThemeStore()
+const dark = computed(() => themeStore.dark)
+
 const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
@@ -145,7 +148,7 @@ function formatTimeAgo(dateStr) {
 }
 
 function toggleDark() {
-  dark.value = !dark.value
+  themeStore.toggle()
 }
 
 function isActive(path) {
@@ -201,9 +204,8 @@ onMounted(async () => {
       <router-link
         v-for="link in [
           { to: '/', label: 'Accueil' },
-          { to: '/post', label: 'Post' },
+          { to: '/explore', label: 'Explore' },
           { to: '/chat', label: 'Chat' },
-          { to: '/game', label: 'Game' }
         ]"
         :key="link.to"
         :to="link.to"

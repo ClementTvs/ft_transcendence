@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { useThemeStore } from '../stores/theme'
 import {
   getConversations, getOrCreateConversation, getMessages, markConversationRead
 } from '../api'
@@ -9,7 +10,9 @@ import {
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const themeStore = useThemeStore()
 const me = computed(() => userStore.user)
+const dark = computed(() => themeStore.dark)
 
 const API = 'http://localhost:8000'
 const WS_URL = 'ws://localhost:8000/api/messages/ws/chat'
@@ -79,13 +82,28 @@ function connectWS() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data)
 
+    // Read receipt
+    if (data.type === 'read_receipt') {
+      if (data.conversation_id === activeConvId.value) {
+        messages.value.forEach(msg => {
+          if (msg.sender_id === me.value?.id) {
+            msg.is_read = true
+          }
+        })
+      }
+      return
+    }
+
     if (data.conversation_id === activeConvId.value) {
       if (!messages.value.find(m => m.id === data.id)) {
         messages.value.push(data)
         scrollToBottom()
       }
-      if (data.sender_id !== me.value?.id) {
-        markConversationRead(activeConvId.value).catch(() => {})
+      if (data.sender_id !== me.value?.id && ws) {
+        ws.send(JSON.stringify({
+          type: 'mark_read',
+          conversation_id: activeConvId.value
+        }))
       }
     }
 
@@ -113,15 +131,19 @@ async function selectConversation(conv) {
 
   try {
     messages.value = await getMessages(conv.id)
+    messagesLoading.value = false
+    await nextTick()
     scrollToBottom()
 
-    if (conv.unread_count > 0) {
-      await markConversationRead(conv.id)
+    if (conv.unread_count > 0 && ws) {
+      ws.send(JSON.stringify({
+        type: 'mark_read',
+        conversation_id: conv.id
+      }))
       conv.unread_count = 0
     }
   } catch (e) {
     console.error(e)
-  } finally {
     messagesLoading.value = false
   }
 }
@@ -183,58 +205,65 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-64px)] bg-rose-50">
+  <div :class="dark ? 'bg-gray-950' : 'bg-rose-50'" class="flex h-[calc(100vh-64px)]">
 
-    <div class="w-80 bg-white border-r border-rose-100 flex flex-col flex-shrink-0">
-      <!-- Header -->
-      <div class="px-5 py-4 border-b border-rose-100">
-        <h2 class="font-bold text-gray-900 text-lg">Messages</h2>
+    <div :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'" class="w-80 border-r flex flex-col flex-shrink-0">
+      <div :class="dark ? 'border-gray-700' : 'border-rose-100'" class="px-5 py-4 border-b">
+        <h2 :class="dark ? 'text-white' : 'text-gray-900'" class="font-bold text-lg">Messages</h2>
         <div class="relative mt-3">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            class="absolute left-3 top-1/2 -translate-y-1/2 text-rose-300">
+            :class="dark ? 'text-gray-500' : 'text-rose-300'"
+            class="absolute left-3 top-1/2 -translate-y-1/2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
             v-model="searchQuery"
             placeholder="Rechercher une conversation..."
-            class="w-full pl-9 pr-3 py-2 bg-rose-50 rounded-full text-sm text-gray-700 placeholder-rose-300 focus:outline-none focus:bg-rose-100/50 transition-colors"
+            :class="dark
+              ? 'bg-gray-800 text-white placeholder-gray-500 focus:bg-gray-750'
+              : 'bg-rose-50 text-gray-700 placeholder-rose-300 focus:bg-rose-100/50'"
+            class="w-full pl-9 pr-3 py-2 rounded-full text-sm focus:outline-none transition-colors"
           />
         </div>
       </div>
 
       <div class="flex-1 overflow-y-auto">
-        <div v-if="loading" class="px-5 py-10 text-center text-gray-400 text-sm">Chargement...</div>
-        <div v-else-if="filteredConversations.length === 0" class="px-5 py-10 text-center text-gray-400 text-sm">
+        <div v-if="loading" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="px-5 py-10 text-center text-sm">Chargement...</div>
+        <div v-else-if="filteredConversations.length === 0" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="px-5 py-10 text-center text-sm">
           {{ searchQuery ? 'Aucun résultat' : 'Aucune conversation' }}
         </div>
         <button
           v-for="conv in filteredConversations"
           :key="conv.id"
           @click="selectConversation(conv)"
-          :class="activeConvId === conv.id ? 'bg-rose-50' : 'hover:bg-gray-50'"
-          class="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors border-b border-gray-50"
+          :class="activeConvId === conv.id
+            ? (dark ? 'bg-gray-800' : 'bg-rose-50')
+            : (dark ? 'hover:bg-gray-800' : 'hover:bg-gray-50')"
+          class="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors border-b"
+          :style="{ borderColor: dark ? '#374151' : '#f9fafb' }"
         >
           <div class="relative flex-shrink-0">
             <img :src="avatarUrl(conv.other_user)" class="h-12 w-12 rounded-full object-cover" />
             <div
               v-if="conv.other_user?.is_online"
-              class="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-400 rounded-full border-2 border-white"
+              :class="dark ? 'border-gray-900' : 'border-white'"
+              class="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-400 rounded-full border-2"
             />
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between">
-              <p class="font-semibold text-gray-900 text-sm truncate">
+              <p :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm truncate">
                 {{ conv.other_user?.display_name || conv.other_user?.username }}
               </p>
-              <span v-if="conv.last_message" class="text-[11px] text-gray-400 flex-shrink-0 ml-2">
+              <span v-if="conv.last_message" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-[11px] flex-shrink-0 ml-2">
                 {{ formatDate(conv.last_message.created_at) }}
               </span>
             </div>
             <div class="flex items-center justify-between mt-0.5">
-              <p class="text-xs text-gray-400 truncate">
+              <p :class="dark ? 'text-gray-400' : 'text-gray-400'" class="text-xs truncate">
                 <span v-if="conv.last_message">
-                  <span v-if="conv.last_message.sender_id === me?.id" class="text-gray-500">Vous : </span>
+                  <span v-if="conv.last_message.sender_id === me?.id" :class="dark ? 'text-gray-500' : 'text-gray-500'">Vous : </span>
                   {{ conv.last_message.content }}
                 </span>
                 <span v-else class="italic">Nouvelle conversation</span>
@@ -257,25 +286,26 @@ onUnmounted(() => {
         <div class="text-center">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
-            class="mx-auto text-gray-300 mb-3">
+            :class="dark ? 'text-gray-600' : 'text-gray-300'"
+            class="mx-auto mb-3">
             <rect width="20" height="16" x="2" y="4" rx="2"/>
             <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
           </svg>
-          <p class="text-gray-400 text-sm">Sélectionnez une conversation</p>
-          <p class="text-gray-300 text-xs mt-1">ou envoyez un message depuis le profil d'un joueur</p>
+          <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-sm">Sélectionnez une conversation</p>
+          <p :class="dark ? 'text-gray-600' : 'text-gray-300'" class="text-xs mt-1">ou envoyez un message depuis le profil d'un joueur</p>
         </div>
       </div>
 
       <template v-else>
-        <div class="flex items-center gap-3 px-5 py-3 bg-white border-b border-rose-100">
+        <div :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'" class="flex items-center gap-3 px-5 py-3 border-b">
           <router-link :to="`/user/${otherUser?.id}`">
             <img :src="avatarUrl(otherUser)" class="h-10 w-10 rounded-full object-cover" />
           </router-link>
           <div class="flex-1 min-w-0">
-            <router-link :to="`/user/${otherUser?.id}`" class="font-semibold text-gray-900 text-sm hover:underline">
+            <router-link :to="`/user/${otherUser?.id}`" :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm hover:underline">
               {{ otherUser?.display_name || otherUser?.username }}
             </router-link>
-            <p class="text-xs" :class="otherUser?.is_online ? 'text-green-500' : 'text-gray-400'">
+            <p class="text-xs" :class="otherUser?.is_online ? 'text-green-500' : (dark ? 'text-gray-500' : 'text-gray-400')">
               {{ otherUser?.is_online ? 'En ligne' : 'Hors ligne' }}
             </p>
           </div>
@@ -283,52 +313,71 @@ onUnmounted(() => {
 
         <div ref="messagesContainer" class="flex-1 overflow-y-auto px-5 py-4">
           <div v-if="messagesLoading" class="flex items-center justify-center py-10">
-            <p class="text-gray-400 text-sm">Chargement des messages...</p>
+            <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-sm">Chargement des messages...</p>
           </div>
 
           <div v-else-if="messages.length === 0" class="flex items-center justify-center py-10">
-            <p class="text-gray-400 text-sm">Aucun message. Dites bonjour !</p>
+            <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-sm">Aucun message. Dites bonjour !</p>
           </div>
 
-          <div v-else class="flex flex-col gap-1.5">
+          <div v-else class="flex flex-col gap-1.5 w-full">
             <div
               v-for="msg in messages"
               :key="msg.id"
               :class="msg.sender_id === me?.id ? 'items-end' : 'items-start'"
-              class="flex flex-col"
+              class="flex flex-col w-full"
             >
               <div
                 :class="msg.sender_id === me?.id
                   ? 'bg-gray-900 text-white rounded-2xl rounded-br-md'
-                  : 'bg-white border border-rose-100 text-gray-800 rounded-2xl rounded-bl-md'"
-                class="max-w-[70%] px-4 py-2.5 shadow-sm"
+                  : dark
+                    ? 'bg-gray-700 border border-gray-600 text-gray-100 rounded-2xl rounded-bl-md'
+                    : 'bg-white border border-rose-100 text-gray-800 rounded-2xl rounded-bl-md'"
+                class="max-w-[70%] px-4 py-2.5 shadow-sm overflow-hidden"
+                style="word-break: break-all;"
               >
                 <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ msg.content }}</p>
               </div>
               <span
                 :class="msg.sender_id === me?.id ? 'text-right' : 'text-left'"
-                class="text-[10px] text-gray-400 mt-0.5 px-1"
+                class="text-[10px] mt-0.5 px-1 flex items-center gap-1"
+                :style="msg.sender_id === me?.id ? 'justify-content: flex-end' : ''"
               >
-                {{ formatTime(msg.created_at) }}
+                <span :class="dark ? 'text-gray-500' : 'text-gray-400'">{{ formatTime(msg.created_at) }}</span>
+                <template v-if="msg.sender_id === me?.id">
+                  <svg v-if="msg.is_read" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" class="text-blue-500">
+                    <path d="M18 6L7 17l-5-5"/><path d="M22 10L11 21"/>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" :class="dark ? 'text-gray-500' : 'text-gray-400'">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                </template>
               </span>
             </div>
           </div>
         </div>
 
-        <div class="px-5 py-3 bg-white border-t border-rose-100">
+        <div :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'" class="px-5 py-3 border-t">
           <div class="flex items-center gap-3">
             <input
               v-model="newMessage"
               @keydown.enter.exact.prevent="sendMessage"
               placeholder="Écrire un message..."
-              class="flex-1 bg-rose-50 rounded-full px-5 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:bg-rose-100/50 transition-colors"
+              :class="dark
+                ? 'bg-gray-800 text-white placeholder-gray-500 focus:bg-gray-750'
+                : 'bg-rose-50 text-gray-700 placeholder-gray-400 focus:bg-rose-100/50'"
+              class="flex-1 rounded-full px-5 py-2.5 text-sm focus:outline-none transition-colors"
             />
             <button
               @click="sendMessage"
               :disabled="!newMessage.trim()"
               :class="newMessage.trim()
                 ? 'bg-gray-900 text-white hover:bg-gray-800'
-                : 'bg-gray-100 text-gray-300 cursor-not-allowed'"
+                : (dark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')"
               class="p-2.5 rounded-full transition-all"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
