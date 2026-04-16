@@ -9,6 +9,7 @@ import Login from "../view/Login.vue"
 import ForgotPassword from '../view/ForgotPassword.vue'
 import Register from '../view/Register.vue'
 import { useUserStore } from '../stores/user'
+import Settings from '../view/Settings.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,9 +20,9 @@ const router = createRouter({
     { path: '/chat/:userId?', component: Chat, meta: { requiresAuth: true } },
     { path: '/explore', component: Explore, meta: { requiresAuth: true } },
     { path: '/post/:id', component: PostDetail, meta: { requiresAuth: true } },
-    { path: '/settings', component: Settings, meta: { requiresAuth:true } },
     { path: '/login', component: Login },
     { path: '/register', component: Register },
+    { path: '/settings', component: Settings, meta: { requiresAuth:true }},
     { path: '/forgot-password', component: ForgotPassword },
   ],
 })
