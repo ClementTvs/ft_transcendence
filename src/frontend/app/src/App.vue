@@ -204,9 +204,8 @@ onMounted(async () => {
       <router-link
         v-for="link in [
           { to: '/', label: 'Accueil' },
-          { to: '/post', label: 'Post' },
+          { to: '/explore', label: 'Explore' },
           { to: '/chat', label: 'Chat' },
-          { to: '/game', label: 'Game' }
         ]"
         :key="link.to"
         :to="link.to"
