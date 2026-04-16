@@ -223,7 +223,7 @@ const themes = [
     <aside :class="['fixed top-0 left-0 h-screen w-64 border-r flex flex-col z-10 transition-colors duration-300', themeClasses.sidebar]">
 
       <!-- Logo -->
-      <div :class="['px-6 py-6 h-[72px] border-b', isDark ? 'border-gray-700' : 'border-rose-100']"> <!--bar haut param -->
+      <div :class="['px-6 py-4 h-[90px] border-b', isDark ? 'border-gray-700' : 'border-rose-100']"> <!--bar haut param -->
         <div class="flex items-center gap-3">
           <div :class="['w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm', isDark ? 'bg-gradient-to-br from-gray-600 to-gray-900 shadow-gray-500' : 'bg-gradient-to-br from-rose-400 to-rose-600 shadow-rose-200']">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -233,6 +233,15 @@ const themes = [
           </div>
           <span :class="['font-semibold tracking-tight', isDark ? 'text-gray-100' : 'text-gray-800']">Paramètres</span>
         </div>
+          <!-- Bouton return profil -->
+        <button
+          @click="$router.push('/profile')"
+          :class="['mt-3 flex items-center gap-2 text-xs font-medium transition-colors', isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-rose-500']">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
+          </svg>
+          Retour au profile
+        </button>
       </div>
 
       <!-- Nav -->
@@ -308,8 +317,8 @@ const themes = [
     <main class="ml-64 min-h-screen">
 
       <!-- Header -->
-      <div :class="['sticky top-0 backdrop-blur-sm border-b px-8 py-4 h-[72px] z-10 transition-colors duration-300', themeClasses.header]"> <!-- bar haut droite-->
-        <div class="flex items-center justify-between">
+      <div :class="['sticky top-0 backdrop-blur-sm border-b px-8 py-2 h-[90px] z-10 transition-colors duration-300', themeClasses.header]"> <!-- bar haut droite-->
+        <div class="flex items-center justify-between h-full">
           <div>
             <h1 :class="['text-lg font-semibold', isDark ? 'text-gray-100' : 'text-gray-900']">{{ currentSection.title }}</h1>
             <p class="text-sm text-gray-400 mt-0.5">{{ currentSection.description }}</p>
