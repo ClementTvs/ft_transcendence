@@ -23,10 +23,10 @@ const API = 'http://localhost:8000'
 const themeClasses = computed(() => {
   switch (selectedTheme.value) {
     case 'rose': return {
-      bg: 'bg-rose-50',
-      sidebar: 'bg-rose-50 border-rose-100',
-      header: 'bg-rose-50/80 border-rose-100',
-      card: 'bg-white border-gray-100',
+      bg: 'bg-gray-50',
+      sidebar: 'bg-rose-50 border-rose-200',
+      header: 'bg-gray-50/80 border-gray-100',
+      card: 'bg-rose-50 border-rose-100',
       label: 'text-gray-500',
     }
     case 'dark': return {
@@ -223,7 +223,7 @@ const themes = [
     <aside :class="['fixed top-0 left-0 h-screen w-64 border-r flex flex-col z-10 transition-colors duration-300', themeClasses.sidebar]">
 
       <!-- Logo -->
-      <div :class="['px-6 py-4 h-[90px] border-b', isDark ? 'border-gray-700' : 'border-rose-100']"> <!--bar haut param -->
+      <div :class="['px-6 py-4 h-[90px] border-b', isDark ? 'border-gray-700' : 'border-rose-200']"> <!--bar haut param -->
         <div class="flex items-center gap-3">
           <div :class="['w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm', isDark ? 'bg-gradient-to-br from-gray-600 to-gray-900 shadow-gray-500' : 'bg-gradient-to-br from-rose-400 to-rose-600 shadow-rose-200']">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -240,7 +240,7 @@ const themes = [
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
           </svg>
-          Retour au profile
+          Retour au profil
         </button>
       </div>
 
@@ -255,7 +255,7 @@ const themes = [
               activeSection === item.id
               ? (isDark 
                   ? 'bg-gray-700 text-gray-300 font-medium'
-                  : 'bg-rose-50 text-rose-600 font-medium'
+                  : 'bg-rose-100 text-rose-600 font-medium'
                 )
               : (isDark 
                   ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
@@ -277,9 +277,9 @@ const themes = [
           :class="[
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150',
             activeSection === item.id
-              ? (isDark 
+              ? (isDark
                   ? 'bg-gray-700 text-gray-300 font-medium'
-                  : 'bg-rose-50 text-rose-600 font-medium'
+                  : 'bg-rose-100 text-rose-600 font-medium'
                 )
               : (isDark 
                   ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
@@ -297,9 +297,9 @@ const themes = [
       </nav>
 
       <!-- User -->
-      <div :class="['px-4 py-4 border-t', isDark ? 'border-gray-700' : 'border-rose-100']">
+      <div :class="['px-4 py-4 border-t', isDark ? 'border-gray-700' : 'border-rose-200']">
         <div class="flex items-center gap-3">
-          <img v-if="form.avatar_url" :src="avatarUrl()" class="w-9 h-9 rounded-full bg-rose-100 ring-2 ring-rose-100"/>
+          <img v-if="form.avatar_url" :src="avatarUrl()" class="w-9 h-9 rounded-full"/>
           <div class="flex-1 min-w-0">
             <p :class="['text-sm font-medium truncate', isDark ? 'text-gray-100' : 'text-gray-800']">{{ form.username }}</p>
             <p class="text-xs text-gray-400 truncate">{{ form.email }}</p>
@@ -317,7 +317,7 @@ const themes = [
     <main class="ml-64 min-h-screen">
 
       <!-- Header -->
-      <div :class="['sticky top-0 backdrop-blur-sm border-b px-8 py-2 h-[90px] z-10 transition-colors duration-300', themeClasses.header]"> <!-- bar haut droite-->
+      <div :class="['sticky top-0 backdrop-blur-sm border-b px-8 py-2 h-[90px] z-10 transition-colors duration-300', isDark ? 'border-gray-700' : 'border-rose-200']"> <!-- bar haut droite-->
         <div class="flex items-center justify-between h-full">
           <div>
             <h1 :class="['text-lg font-semibold', isDark ? 'text-gray-100' : 'text-gray-900']">{{ currentSection.title }}</h1>
@@ -375,7 +375,7 @@ const themes = [
             <!-- Avatar -->
             <div class="px-6">
               <div
-                class="relative w-20 h-20 -mt-10 rounded-full border-4 border-white bg-gray-800 cursor-pointer overflow-hidden group/avatar shadow-sm z-10"
+                class="relative w-20 h-20 -mt-10 rounded-full border-4 bg-gray-800 cursor-pointer overflow-hidden group/avatar shadow-sm z-10"
                 @click="avatarInput?.click()">
                 <img v-if="form.avatar_url" :src="avatarUrl()" alt="Avatar" class="w-full h-full object-cover"/>
                 <div v-else class="w-full h-full flex items-center justify-center text-white/40">
@@ -625,7 +625,7 @@ const themes = [
                 <span :class="['absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200', twofa ? 'translate-x-5' : '']"></span>
               </button>
             </div>
-            <div v-if="twofa" :class="['p-4', isDark ? 'bg-gray-200 rounded-xl border border-gray-500' : 'bg-rose-50 rounded-xl border border-rose-100']">
+            <div v-if="twofa" :class="['p-4', isDark ? 'bg-gray-200 rounded-xl border border-gray-500' : 'bg-gray-50 rounded-xl border border-gray-100']">
               <p :class="['text-xs', isDark ? 'text-gray-700 font-medium mb-1' : 'text-rose-600 font-medium mb-1']">✓ Double authentification activée</p>
               <p :class="['text-xs',  isDark ? 'text-gray-500' : 'text-rose-400']">Votre compte est sécurisé via une application TOTP.</p>
             </div>
@@ -639,8 +639,8 @@ const themes = [
             <div class="grid grid-cols-3 gap-3">
               <button v-for="theme in themes" :key="theme.id" @click="selectedTheme = theme.id"
                 :class="['p-3 rounded-xl border-2 transition-all text-left',
-                  selectedTheme === theme.id ? (isDark ? 'border-gray-500 bg-gray-300' : 'border-rose-400 bg-rose-50')
-                  : (isDark ? 'border-gray-600 hover:border-gray-500' : 'border-gray-100 hover:border-gray-200')]">
+                  selectedTheme === theme.id ? (isDark ? 'border-gray-500 bg-gray-500' : 'border-rose-400 bg-gray-50')
+                  : (isDark ? 'border-gray-600 hover:border-gray-500  ' : 'border-gray-100 hover:border-gray-50 bg-gray-50')]">
                 <div :class="['w-full h-12 rounded-lg mb-2', theme.preview]"></div>
                 <p :class="['text-xs font-medium', isDark ? 'text-gray-200' : 'text-gray-700']">{{ theme.label }}</p>
                 <p class="text-[10px] text-gray-400">{{ theme.desc }}</p>
@@ -663,7 +663,7 @@ const themes = [
         <template v-if="activeSection === 'danger'">
           <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', isDark ? 'border-gray-500': 'border-red-100','', themeClasses.card]">
             <div class="flex items-start gap-3 mb-4">
-              <div class="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+              <div class="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
                 <svg :class="['w-4 h-4', isDark ? 'text-red-600' : 'text-red-400']" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
                 </svg>
