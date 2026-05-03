@@ -40,7 +40,6 @@ onMounted(async () => {
     avatarUrl.value = '/def_user.png'
   }
   
-  console.log('banner_url brut:', user.value.banner_url, typeof user.value.banner_url)
   if (user.value.banner_url && user.value.banner_url !== '' && user.value.banner_url !== 'null') {
     bannerUrl.value = user.value.banner_url.startsWith('http')
       ? user.value.banner_url
@@ -217,7 +216,11 @@ function formatDate(dateStr) {
           >
             <div class="flex items-center gap-3 mb-3">
               <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
-                <img v-if="post.author?.avatar_url" :src="post.author.avatar_url.startsWith('http') ? post.author.avatar_url : `${API}${post.author.avatar_url}`" alt="" class="w-full h-full object-cover" />
+                <img
+                  :src="post.author?.avatar_url && post.author.avatar_url !== '/def_user.png' && post.author.avatar_url.startsWith('/') ? `${API}${post.author.avatar_url}` : (post.author?.avatar_url?.startsWith('http') ? post.author.avatar_url : '/def_user.png')"
+                  alt=""
+                  class="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <span :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm">{{ post.author?.display_name || post.author?.username }}</span>
