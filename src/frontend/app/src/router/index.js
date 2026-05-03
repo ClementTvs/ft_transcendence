@@ -10,6 +10,8 @@ import ForgotPassword from '../view/ForgotPassword.vue'
 import Register from '../view/Register.vue'
 import { useUserStore } from '../stores/user'
 import Settings from '../view/Settings.vue'
+import Terms from '../view/TermOfService.vue'
+import Privacy from '../view/PrivacyPolicy.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,6 +22,8 @@ const router = createRouter({
     { path: '/chat/:userId?', component: Chat, meta: { requiresAuth: true } },
     { path: '/explore', component: Explore, meta: { requiresAuth: true } },
     { path: '/post/:id', component: PostDetail, meta: { requiresAuth: true } },
+    { path: '/terms', component: Terms, meta: {requiresAuth: true} },
+    { path: '/privacy', component: Privacy, meta: {requiresAuth: true} },
     { path: '/login', component: Login },
     { path: '/register', component: Register },
     { path: '/settings', component: Settings, meta: { requiresAuth:true }},

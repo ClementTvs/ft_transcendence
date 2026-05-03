@@ -352,8 +352,34 @@ onMounted(async () => {
 
   <div v-if="showNotifDropdown" class="fixed inset-0 z-40" @click="showNotifDropdown = false" />
   <div v-if="showSearchResults" class="fixed inset-0 z-40" @click="closeSearch" />
-
-  <router-view />
+    <router-view class="pb-14"/>
+    
+  <footer v-if="!hideNav"
+    :class="dark ? 'bg-gray-900 border-gray-800 text-gray-500' : 'bg-rose-50 border-rose-100 text-gray-400'"
+    class="fixed bottom-0 left-0 right-0 border-t py-3 px-6 z-30"
+  >
+      <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-xs">© 2026 ft_transcendence · 42</p>
+    
+        <div class="flex items-center gap-4">
+          <router-link
+            to="/terms"
+            :class="dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'"
+            class="text-xs transition-colors"
+          >
+            Conditions d'utilisation
+          </router-link>
+          <span :class="dark ? 'text-gray-700' : 'text-gray-300'">·</span>
+          <router-link
+            to="/privacy"
+            :class="dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'"
+            class="text-xs transition-colors"
+          >
+            Politique de confidentialité
+          </router-link>
+        </div>
+      </div>
+    </footer>
 </template>
 
 <style scoped></style>
