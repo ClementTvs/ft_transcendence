@@ -2,6 +2,7 @@
 import { ref, computed, reactive } from 'vue'
 import { uploadAvatar, uploadBanner, changePassword, deleteAccount } from '../api'
 import { useUserStore } from '../stores/user'
+import { useThemeStore } from '../stores/theme'
 
 const activeSection = ref('profile')
 const saved = ref(false)
@@ -17,29 +18,31 @@ const currentPass = ref(null)
 const showPass = reactive({ current: false, pass1: false, pass2: false })
 const passErrors = reactive({ current: '', pass1: '', pass2: '' })
 const userStore = useUserStore()
+const themeStore = useThemeStore()
 const language = ref('fr')
 const API = 'http://localhost:8000'
 
 const themeClasses = computed(() => {
-  switch (selectedTheme.value) {
-    case 'rose': return {
+  if (themeStore.dark) {
+    return {
+      bg: 'bg-gray-950',
+      sidebar: 'bg-gray-800 border-gray-700',
+      header: 'bg-gray-900/80 border-gray-700',
+      card: 'bg-gray-800 border-gray-700',
+      label: 'text-gray-400',
+    }
+  } else {
+    return {
       bg: 'bg-gray-50',
       sidebar: 'bg-rose-50 border-rose-200',
       header: 'bg-gray-50/80 border-gray-100',
       card: 'bg-rose-50 border-rose-100',
       label: 'text-gray-500',
     }
-    case 'dark': return {
-      bg: 'bg-gray-900',
-      sidebar: 'bg-gray-800 border-gray-700',
-      header: 'bg-gray-900/80 border-gray-700',
-      card: 'bg-gray-800 border-gray-700',
-      label: 'text-gray-400',
-    }
   }
 })
 
-const isDark = computed(() => selectedTheme.value === 'dark')
+const isDark = computed(() => themeStore.dark)
 
 async function onBannerChange(e) {
   const file = e.target.files[0]
@@ -637,14 +640,31 @@ const themes = [
           <div :class="['rounded-2xl border p-6 mb-5 shadow-sm transition-colors duration-300', themeClasses.card]">
             <h2 :class="['text-sm font-semibold mb-5', isDark ? 'text-gray-200' : 'text-gray-700']">Thème</h2>
             <div class="grid grid-cols-3 gap-3">
-              <button v-for="theme in themes" :key="theme.id" @click="selectedTheme = theme.id"
-                :class="['p-3 rounded-xl border-2 transition-all text-left',
-                  selectedTheme === theme.id ? (isDark ? 'border-gray-500 bg-gray-500' : 'border-rose-400 bg-gray-50')
-                  : (isDark ? 'border-gray-600 hover:border-gray-500  ' : 'border-gray-100 hover:border-gray-50 bg-gray-50')]">
-                <div :class="['w-full h-12 rounded-lg mb-2', theme.preview]"></div>
-                <p :class="['text-xs font-medium', isDark ? 'text-gray-200' : 'text-gray-700']">{{ theme.label }}</p>
-                <p class="text-[10px] text-gray-400">{{ theme.desc }}</p>
-              </button>
+            <button
+              v-for="theme in themes"
+              :key="theme.id"
+              @click="theme.id === 'dark' ? themeStore.dark = true : themeStore.dark = false"
+              :class="[
+                'p-3 rounded-xl border-2 transition-all text-left',
+                (theme.id === 'dark' && themeStore.dark) || (theme.id === 'light' && !themeStore.dark)
+                  ? (isDark
+                      ? 'border-gray-500 bg-gray-500'
+                      : 'border-rose-400 bg-gray-50')
+                  : (isDark
+                      ? 'border-gray-600 hover:border-gray-500'
+                      : 'border-gray-100 hover:border-gray-50 bg-gray-50')
+              ]"
+            >
+              <div :class="['w-full h-12 rounded-lg mb-2', theme.preview]"></div>
+
+              <p :class="['text-xs font-medium', isDark ? 'text-gray-200' : 'text-gray-700']">
+                {{ theme.label }}
+              </p>
+
+              <p class="text-[10px] text-gray-400">
+                {{ theme.desc }}
+              </p>
+            </button>
             </div>
           </div>
 
