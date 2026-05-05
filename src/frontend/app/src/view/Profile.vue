@@ -26,7 +26,7 @@ const user = computed(() => userStore.user)
 const bannerUrl = ref('')
 const avatarUrl = ref('')
 
-const API = 'http://localhost:8000'
+const API = 'https://localhost:8000'
 
 
 onMounted(async () => {

@@ -11,7 +11,7 @@ const userStore = useUserStore()
 const themeStore = useThemeStore()
 const user = computed(() => userStore.user)
 const dark = computed(() => themeStore.dark)
-const API = 'http://localhost:8000'
+const API = 'https://localhost:8000'
 
 const post = ref(null)
 const comments = ref([])

@@ -1,12 +1,17 @@
 from jose import jwt
 import os
 
-ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', 'default_key')
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
 
-def encrpypt_message(message: str) -> str:
+
+def encrypt_message(message: str) -> str:
+	if not ENCRYPTION_KEY:
+		raise RuntimeError("ENCRYPTION_KEY environment variable is not set")
 	return jwt.encode({"message": message}, ENCRYPTION_KEY, algorithm="HS256")
 
 def decrypt_message(token: str) -> str:
+	if not ENCRYPTION_KEY:
+		return ""
 	try:
 		payload = jwt.decode(token, ENCRYPTION_KEY, algorithms=["HS256"])
 		return payload.get("message", "")

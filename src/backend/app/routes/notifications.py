@@ -89,6 +89,26 @@ async def mark_as_read(
     return {"message": "Notification marked as read"}
 
 
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a notification"""
+    notif = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == current_user.id
+    ).first()
+
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    db.delete(notif)
+    db.commit()
+    return None
+
+
 @router.websocket("/ws")
 async def websocket_notifications(websocket: WebSocket, token: str = Query(...)):
     try:

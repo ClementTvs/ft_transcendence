@@ -14,8 +14,8 @@ const themeStore = useThemeStore()
 const me = computed(() => userStore.user)
 const dark = computed(() => themeStore.dark)
 
-const API = 'http://localhost:8000'
-const WS_URL = 'ws://localhost:8000/api/messages/ws/chat'
+const API = 'https://localhost:8000'
+const WS_URL = 'wss://localhost:8000/api/messages/ws/chat'
 
 const conversations = ref([])
 const activeConvId = ref(null)

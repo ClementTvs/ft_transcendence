@@ -13,13 +13,21 @@ services:
     volumes:
       - backend-data:/app/static
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=transcendence
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
-      - SECRET_KEY=your-secret-key-change-this-in-production-please
-      - ENCRYPTION_KEY=your-encryption-key-change-this-in-production-please
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - FRONTEND_URL=${FRONTEND_URL}
+      # SMTP settings (optional — reset links are logged to console if unset)
+      # - SMTP_HOST=smtp.example.com
+      # - SMTP_PORT=587
+      # - SMTP_USER=user@example.com
+      # - SMTP_PASS=yourpassword
+      # - SMTP_FROM=noreply@example.com
     depends_on:
       db:
         condition: service_healthy
@@ -29,11 +37,11 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=transcendence
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       retries: 5
 volumes:

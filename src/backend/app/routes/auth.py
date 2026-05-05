@@ -1,11 +1,18 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+import os
+import smtplib
+from email.mime.text import MIMEText
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt as jose_jwt, JWTError
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.database import get_db
 from app.models import User
-from app.schemas import UserCreate, UserResponse, LoginRequest, Token, RefreshTokenRequest
+from app.schemas import UserCreate, UserResponse, LoginRequest, Token, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest
 from app.auth import (
     get_password_hash,
     authenticate_user,
@@ -13,8 +20,13 @@ from app.auth import (
     create_refresh_token,
     verify_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    get_current_active_user
+    ALGORITHM,
+    get_current_active_user,
+    verify_password,
 )
+
+logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -58,7 +70,9 @@ async def register(
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
@@ -123,8 +137,7 @@ async def refresh_access_token(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        from jose import jwt as jose_jwt
-        from app.auth import SECRET_KEY, ALGORITHM
+        from app.auth import SECRET_KEY
         payload = jose_jwt.decode(body.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "refresh":
             raise credentials_error
@@ -145,3 +158,83 @@ async def refresh_access_token(
     )
     new_refresh_token = create_refresh_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
+
+
+def _send_reset_email(to_email: str, reset_url: str) -> None:
+    """Send a password reset email via SMTP. Logs the URL if SMTP is not configured."""
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    smtp_from = os.getenv("SMTP_FROM", smtp_user or "noreply@transcendence.local")
+
+    if not smtp_host or not smtp_user:
+        logger.warning("SMTP not configured — password reset URL for %s: %s", to_email, reset_url)
+        return
+
+    msg = MIMEText(
+        f"Click the link below to reset your password (valid 15 minutes):\n\n{reset_url}\n\n"
+        f"If you did not request this, ignore this email."
+    )
+    msg["Subject"] = "Password reset"
+    msg["From"] = smtp_from
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, [to_email], msg.as_string())
+    except Exception as exc:
+        logger.error("Failed to send reset email to %s: %s", to_email, exc)
+
+
+@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/minute")
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """Request a password-reset link sent to the given email address.
+    Always returns 202 to avoid email enumeration."""
+    from app.auth import SECRET_KEY
+    user = db.query(User).filter(User.email == body.email, User.is_active == True).first()
+    if user:
+        payload = {"sub": user.username, "type": "password_reset"}
+        token = jose_jwt.encode(
+            {**payload, "exp": __import__("datetime").datetime.utcnow() + timedelta(minutes=15)},
+            SECRET_KEY,
+            algorithm=ALGORITHM,
+        )
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8080")
+        reset_url = f"{frontend_url}/reset-password?token={token}"
+        _send_reset_email(user.email, reset_url)
+    return {"message": "If that email exists you will receive a reset link shortly."}
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """Consume a password-reset token and set a new password."""
+    from app.auth import SECRET_KEY
+    invalid = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
+    try:
+        payload = jose_jwt.decode(body.token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "password_reset":
+            raise invalid
+        username: str = payload.get("sub")
+        if not username:
+            raise invalid
+    except JWTError:
+        raise invalid
+
+    user = db.query(User).filter(User.username == username, User.is_active == True).first()
+    if not user:
+        raise invalid
+
+    user.hashed_password = get_password_hash(body.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}

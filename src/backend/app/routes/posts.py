@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List
+import os
+import uuid
+import shutil
 
 from app.database import get_db
 from app.models import User, Post, Like, Comment, Notification
 from app.schemas import PostCreate, PostUpdate, PostResponse, PostWithAuthor, UserResponse
 from app.auth import get_current_active_user
 from app.ws_manager import notif_manager
+
+UPLOAD_DIR = "static"
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
@@ -251,6 +257,34 @@ async def like_post(
         })
     
     return {"message": "Post liked successfully"}
+
+
+@router.post("/{post_id}/image", response_model=PostResponse)
+async def upload_post_image(
+    post_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Upload an image for a post (only by the author)"""
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only edit your own posts")
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="File must be an image (jpeg, png, gif, webp)")
+
+    ext = file.filename.rsplit(".", 1)[-1]
+    filename = f"post_{uuid.uuid4()}.{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+    with open(path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    post.image_url = f"/static/{filename}"
+    db.commit()
+    db.refresh(post)
+    return get_post_with_counts(post, current_user.id)
 
 
 @router.delete("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT)

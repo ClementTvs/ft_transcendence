@@ -22,7 +22,8 @@ const showSearchResults = ref(false)
 const searching = ref(false)
 let searchTimeout = null
 
-const API = 'http://localhost:8000'
+const API = 'https://localhost:8000'
+const WS_NOTIF_URL = 'wss://localhost:8000/api/notifications/ws'
 
 const user = computed(() => userStore.user)
 
@@ -159,12 +160,40 @@ const hideNav = computed(() =>
   ['/login', '/register', '/forgot-password', '/settings'].includes(route.path)
 )
 
+let notifWs = null
+//                                                                                   A verifier                 //
+function connectNotifWS() {
+  const token = localStorage.getItem('token')
+  if (!token || notifWs) return
+  notifWs = new WebSocket(`${WS_NOTIF_URL}?token=${token}`)
+  notifWs.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      unreadCount.value++
+      notifications.value.unshift({
+        id: Date.now(),
+        type: data.type,
+        actor: { username: data.actor_username },
+        created_at: new Date().toISOString(),
+        is_read: false,
+        post_id: data.post_id ?? null,
+      })
+    } catch (e) { console.error(e) }
+  }
+  notifWs.onclose = () => {
+    notifWs = null
+    // Reconnect after 3s if token still present
+    if (localStorage.getItem('token')) setTimeout(connectNotifWS, 3000)
+  }
+}
+
 onMounted(async () => {
   const token = localStorage.getItem('token')
   if (token) {
     try {
       await userStore.fetchUser()
       await fetchUnreadCount()
+      connectNotifWS()                                                                         // ca aussi
     } catch {
       localStorage.removeItem('token')
       router.push('/login')

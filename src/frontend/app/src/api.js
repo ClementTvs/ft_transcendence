@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000'
+const API = 'https://localhost:8000'
 
 function getHeaders() {
   const token = localStorage.getItem('token')

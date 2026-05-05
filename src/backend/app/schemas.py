@@ -66,6 +66,15 @@ class PasswordChange(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=72)
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6, max_length=72)
+
+
 # Post Schemas
 class PostBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
