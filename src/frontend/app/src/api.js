@@ -129,12 +129,61 @@ export async function getUserPosts(userId) {
   return res.json()
 }
 
-export async function createPost(content) {
+export async function createPost(content, imageFile = null) {
+  // Avec image: multipart/form-data sur /api/posts/with-image
+  if (imageFile) {
+    const formData = new FormData()
+    formData.append('content', content)
+    formData.append('file', imageFile)
+    const res = await fetch(`${API}/api/posts/with-image`, {
+      method: 'POST',
+      headers: getAuthHeader(), // pas de Content-Type: le navigateur le met avec le boundary
+      body: formData
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || 'Erreur création post')
+    }
+    return res.json()
+  }
+
+  // Sans image: JSON sur /api/posts/
   const res = await fetch(`${API}/api/posts/`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ content })
   })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || 'Erreur création post')
+  }
+  return res.json()
+}
+
+export async function uploadPostImage(postId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API}/api/posts/${postId}/image`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    body: formData
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || 'Erreur upload image')
+  }
+  return res.json()
+}
+
+export async function deletePostImage(postId) {
+  const res = await fetch(`${API}/api/posts/${postId}/image`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || 'Erreur suppression image')
+  }
   return res.json()
 }
 
