@@ -326,7 +326,7 @@ export async function changePassword(current_password, new_password) {
   })
   if (!res.ok) {
     const error = await res.json()
-    throw new Error(error.detail || 'Erreur changement de mot de passe')
+    throw new Error(error.detail || 'Password change error')
   }
   return res.json()
 }
@@ -337,7 +337,20 @@ export async function deleteAccount() {
     headers: getHeaders()
   })
   if (!res.ok) {
-    throw new Error('Erreur suppression compte')
+    throw new Error('Account deletion error')
   }
   return true
+}
+
+export async function forgotPassword(email) 
+{ 
+  const res = await fetch(`${API}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ email })
+  })
+  if (!res.ok) {
+    throw new Error('Error requesting password reset') 
+  } 
+  return await res.json() 
 }
