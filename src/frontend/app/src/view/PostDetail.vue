@@ -59,7 +59,11 @@ async function loadPost() {
   const postId = route.params.id
   try {
     const res = await fetch(`${API}/api/posts/${postId}`, { headers: getHeaders() })
-    if (!res.ok) throw new Error('Post not found')
+    if (res.status === 404) {
+      router.replace({ path: '/404', query: { from: route.fullPath } })
+      return
+    }
+    if (!res.ok) throw new Error('Failed to load post')
     post.value = await res.json()
   } catch (e) {
     console.error(e)
@@ -68,6 +72,7 @@ async function loadPost() {
     loading.value = false
   }
 }
+
 
 async function loadComments() {
   if (!post.value) return

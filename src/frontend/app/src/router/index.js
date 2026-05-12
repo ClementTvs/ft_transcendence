@@ -12,22 +12,24 @@ import { useUserStore } from '../stores/user'
 import Settings from '../view/Settings.vue'
 import Terms from '../view/TermOfService.vue'
 import Privacy from '../view/PrivacyPolicy.vue'
+import NotFound from '../view/404.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', component: Home, meta: { requiresAuth: true } },
     { path: '/profile', component: Profile, meta: { requiresAuth: true } },
-    { path: '/user/:id', component: UserProfile, meta: { requiresAuth: true } },
+    { path: '/user/:id(\\d+)', component: UserProfile, meta: { requiresAuth: true } },
     { path: '/chat/:userId?', component: Chat, meta: { requiresAuth: true } },
     { path: '/explore', component: Explore, meta: { requiresAuth: true } },
-    { path: '/post/:id', component: PostDetail, meta: { requiresAuth: true } },
+    { path: '/post/:id(\\d+)', component: PostDetail, meta: { requiresAuth: true } },
     { path: '/terms', component: Terms },
     { path: '/privacy', component: Privacy },
     { path: '/login', component: Login },
     { path: '/register', component: Register },
     { path: '/settings', component: Settings, meta: { requiresAuth:true }},
     { path: '/forgot-password', component: ForgotPassword },
+    { path: '/:pathMatch(.*)*', component: NotFound},
   ],
 })
 
