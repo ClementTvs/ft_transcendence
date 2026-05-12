@@ -46,6 +46,12 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function parsePost(post) {
+  const match = post.content?.match(/^\[(.+?)\]\s*(.*)$/s)
+  if (match) return { game: match[1], content: match[2] }
+  return { game: null, content: post.content }
+}
+
 async function loadProfile(userId) {
   loading.value = true
   try {
@@ -96,6 +102,10 @@ async function handleDM() {
   } catch (e) {
     console.error('Erreur DM:', e)
   }
+}
+
+function goToPost(postId) {
+  router.push(`/post/${postId}`)
 }
 
 watch(() => route.params.id, (newId) => {
@@ -203,8 +213,9 @@ onMounted(() => {
           <div v-if="posts.length === 0" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-center py-12 text-sm">Aucun post</div>
           <div
             v-for="post in posts" :key="post.id"
+            @click="goToPost(post.id)"
             :class="dark ? 'bg-gray-900 border-gray-700 hover:shadow-gray-900/50' : 'bg-white border-rose-100 hover:shadow-rose-100/50'"
-            class="rounded-xl border p-4 mb-3 hover:shadow-md transition-shadow"
+            class="rounded-xl border p-4 mb-3 hover:shadow-md transition-shadow cursor-pointer"
           >
             <div class="flex items-center gap-3 mb-3">
               <img :src="avatarUrl(post.author)" class="h-10 w-10 rounded-full object-cover flex-shrink-0" />
@@ -213,7 +224,24 @@ onMounted(() => {
                 <span class="ml-2 text-gray-400 text-xs">{{ formatDate(post.created_at) }}</span>
               </div>
             </div>
-            <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-[15px] leading-relaxed whitespace-pre-wrap">{{ post.content }}</p>
+
+            <!-- Game tag -->
+            <span v-if="parsePost(post).game" :class="dark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'" class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4m-2-2v4m6-1h.01m4 0h.01"/></svg>
+              {{ parsePost(post).game }}
+            </span>
+
+            <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-[15px] leading-relaxed whitespace-pre-wrap">{{ parsePost(post).content }}</p>
+
+            <!-- Image -->
+            <img
+              v-if="post.image_url"
+              :src="post.image_url.startsWith('http') ? post.image_url : `${API}${post.image_url}`"
+              :class="dark ? 'border-gray-700' : 'border-rose-100'"
+              class="mt-3 rounded-xl max-h-96 w-full object-cover border"
+              loading="lazy"
+            />
+
             <div class="flex gap-6 mt-3">
               <span :class="dark ? 'text-gray-500' : 'text-gray-400'" class="flex items-center gap-1.5 text-xs">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
