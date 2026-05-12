@@ -15,7 +15,7 @@ const themeStore = useThemeStore()
 const me = computed(() => userStore.user)
 const dark = computed(() => themeStore.dark)
 
-const API = 'https://localhost:8000'
+const API = ''
 
 const profile = ref(null)
 const stats = ref({ post_count: 0, follower_count: 0, following_count: 0 })

@@ -22,8 +22,8 @@ const showSearchResults = ref(false)
 const searching = ref(false)
 let searchTimeout = null
 
-const API = 'https://localhost:8000'
-const WS_NOTIF_URL = 'wss://localhost:8000/api/notifications/ws'
+const API = ''
+const WS_NOTIF_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/notifications/ws`
 
 const user = computed(() => userStore.user)
 
