@@ -13,7 +13,7 @@ const userStore = useUserStore()
 const themeStore = useThemeStore()
 const user = computed(() => userStore.user)
 const dark = computed(() => themeStore.dark)
-const API = 'https://localhost:8000'
+const API = ''
 const RAWG_KEY = '04bb0cb2a9604bf39f6bddde196ff9ef'
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5 MB (synchro avec back)
 

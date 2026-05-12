@@ -20,7 +20,7 @@ const passErrors = reactive({ current: '', pass1: '', pass2: '' })
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const language = ref('fr')
-const API = 'https://localhost:8000'
+const API = ''
 
 const themeClasses = computed(() => {
   if (themeStore.dark) {

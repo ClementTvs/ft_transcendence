@@ -3,15 +3,20 @@ services:
     build: ./src/frontend
     ports:
       - "8080:443"
+      - "8081:80"
     depends_on:
       - backend
 
   backend:
     build: ./src/backend
-    ports:
-      - "8000:8000"
     volumes:
       - backend-data:/app/static
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
