@@ -11,6 +11,7 @@ from app.database import engine, Base
 # Import models BEFORE creating tables so SQLAlchemy knows about them
 from app import models
 from app.routes import auth, users, posts, comments, social, notifications, messages
+from app.routes import public_api, apikeys
 
 # Validate required secrets at startup
 _SECRET_KEY = os.getenv("SECRET_KEY")
@@ -58,6 +59,8 @@ app.include_router(comments.router)
 app.include_router(social.router)
 app.include_router(notifications.router)
 app.include_router(messages.router)
+app.include_router(public_api.router)
+app.include_router(apikeys.router)
 
 
 @app.get("/health")

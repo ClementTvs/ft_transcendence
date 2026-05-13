@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, reactive } from 'vue'
-import { uploadAvatar, uploadBanner, changePassword, deleteAccount, updateProfile } from '../api'
+import { ref, computed, reactive, watch } from 'vue'
+import { uploadAvatar, uploadBanner, changePassword, deleteAccount, updateProfile, getApiKeys, createApiKey, revokeApiKey } from '../api'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
 
@@ -191,6 +191,38 @@ const editing = reactive({
   bio: false,
 })
 
+// API Keys state
+const apiKeys = ref([])
+const newKeyName = ref('')
+const newKeyCreated = ref(null)
+const apiKeyError = ref('')
+const apiKeyLoading = ref(false)
+
+async function loadApiKeys() {
+  try { apiKeys.value = await getApiKeys() } catch (e) { console.error(e) }
+}
+
+async function handleCreateKey() {
+  apiKeyError.value = ''
+  if (!newKeyName.value.trim()) return (apiKeyError.value = "Saisissez un nom pour la clé.")
+  apiKeyLoading.value = true
+  try {
+    newKeyCreated.value = await createApiKey(newKeyName.value.trim())
+    newKeyName.value = ''
+    await loadApiKeys()
+  } catch (e) {
+    apiKeyError.value = e.message
+  } finally {
+    apiKeyLoading.value = false
+  }
+}
+
+async function handleRevokeKey(keyId) {
+  try { await revokeApiKey(keyId); await loadApiKeys() } catch (e) { console.error(e) }
+}
+
+watch(activeSection, (val) => { if (val === 'apikeys') loadApiKeys() })
+
 const form = reactive({
   avatar_url: userStore.user.avatar_url,
   banner_url: userStore.user.banner_url,
@@ -219,6 +251,10 @@ const navItems = {
       icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42"/></svg>`
     },
     {
+      id: 'apikeys', label: 'Clés API',
+      icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 0 1 21.75 8.25Z"/></svg>`
+    },
+    {
       id: 'danger', label: 'Danger',
       icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>`
     },
@@ -229,6 +265,7 @@ const sections = {
   profile: { title: 'Mon profil', description: 'Gérez vos informations personnelles' },
   security: { title: 'Sécurité', description: 'Mot de passe et authentification' },
   appearance: { title: 'Apparence', description: 'Thème, langue et affichage' },
+  apikeys: { title: 'Clés API', description: 'Accès programmatique à l\'API publique' },
   danger: { title: 'Zone de danger', description: 'Actions irréversibles' },
 }
 
@@ -699,6 +736,54 @@ const themes = [
             </select>
           </div> -->
         </template> 
+
+        <!-- API KEYS SECTION -->
+        <template v-if="activeSection === 'apikeys'">
+          <div :class="['rounded-2xl border p-6 shadow-sm space-y-5 transition-colors duration-300', themeClasses.card]">
+            <div>
+              <h2 :class="['text-sm font-semibold mb-1', isDark ? 'text-gray-200' : 'text-gray-700']">Clés API publique</h2>
+              <p class="text-xs text-gray-400">Utilisez ces clés pour accéder à l'API publique via l'en-tête <code class="font-mono px-1 rounded bg-gray-100 text-gray-700">X-API-Key</code>.</p>
+              <p class="text-xs text-gray-400 mt-0.5">Documentation interactive&nbsp;: <a href="/docs" target="_blank" :class="isDark ? 'text-blue-400' : 'text-rose-500'" class="underline">/docs</a></p>
+            </div>
+
+            <!-- Newly created key (show once) -->
+            <div v-if="newKeyCreated" :class="['rounded-xl border p-4 space-y-2', isDark ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200']">
+              <p class="text-xs font-semibold text-green-600">Clé créée — copiez-la maintenant, elle ne sera plus affichée !</p>
+              <div class="flex items-center gap-2">
+                <code :class="['flex-1 text-xs font-mono break-all rounded-lg px-3 py-2', isDark ? 'bg-gray-700 text-gray-200' : 'bg-white text-gray-800 border border-green-200']">{{ newKeyCreated.key }}</code>
+                <button @click="navigator.clipboard.writeText(newKeyCreated.key)" :class="['text-xs px-3 py-2 rounded-lg font-medium transition-colors', isDark ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' : 'bg-green-100 hover:bg-green-200 text-green-700']">Copier</button>
+              </div>
+              <button @click="newKeyCreated = null" class="text-xs text-gray-400 hover:text-gray-600">Fermer</button>
+            </div>
+
+            <!-- Create key -->
+            <div class="flex gap-2">
+              <input v-model="newKeyName" @keyup.enter="handleCreateKey" type="text" placeholder="Nom de la clé (ex : mon-script)"
+                :class="['flex-1 px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none', isDark ? 'bg-gray-700 border-gray-600 text-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-500 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-800 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-400']" />
+              <button @click="handleCreateKey" :disabled="apiKeyLoading"
+                :class="['px-4 py-2 rounded-xl text-sm font-medium transition-colors', isDark ? 'bg-gray-500 hover:bg-gray-400 text-white' : 'bg-rose-400 hover:bg-rose-500 text-white']">
+                {{ apiKeyLoading ? '…' : 'Créer' }}
+              </button>
+            </div>
+            <p v-if="apiKeyError" class="text-xs text-red-400">{{ apiKeyError }}</p>
+
+            <!-- Key list -->
+            <div v-if="apiKeys.length" class="space-y-2">
+              <div v-for="k in apiKeys" :key="k.id"
+                :class="['flex items-center justify-between rounded-xl border px-4 py-3', isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-200 bg-white']">
+                <div>
+                  <p :class="['text-sm font-medium', isDark ? 'text-gray-200' : 'text-gray-800']">{{ k.name }}</p>
+                  <p class="text-xs text-gray-400 font-mono">{{ k.key }}</p>
+                  <p class="text-xs text-gray-400">Créée le {{ new Date(k.created_at).toLocaleDateString('fr-FR') }}</p>
+                </div>
+                <button v-if="k.is_active" @click="handleRevokeKey(k.id)"
+                  class="text-xs px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 font-medium transition-colors">Révoquer</button>
+                <span v-else class="text-xs text-gray-400 italic">Révoquée</span>
+              </div>
+            </div>
+            <p v-else class="text-sm text-gray-400">Aucune clé API. Créez-en une ci-dessus.</p>
+          </div>
+        </template>
 
         <!-- DANGER ZONE -->
         <template v-if="activeSection === 'danger'">

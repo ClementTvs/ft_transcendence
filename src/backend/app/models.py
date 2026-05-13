@@ -54,6 +54,9 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
+    # Public API keys
+    api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
+
 
 class Post(Base):
     __tablename__ = "posts"
@@ -149,6 +152,19 @@ class Message(Base):
 	# Relationships
 	conversation = relationship("Conversation", back_populates="messages")
 	sender = relationship("User")
+
+class APIKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="api_keys")
+
 
 class Notification(Base):
     __tablename__ = "notifications"

@@ -368,6 +368,35 @@ export async function forgotPassword(email)
   return await res.json() 
 }
 
+// --- API Key management ---
+
+export async function getApiKeys() {
+  const res = await fetch(`${API}/api/apikeys`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur lors de la récupération des clés API')
+  return res.json()
+}
+
+export async function createApiKey(name) {
+  const res = await fetch(`${API}/api/apikeys`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || 'Erreur lors de la création de la clé API')
+  }
+  return res.json()
+}
+
+export async function revokeApiKey(keyId) {
+  const res = await fetch(`${API}/api/apikeys/${keyId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  })
+  if (!res.ok) throw new Error('Erreur lors de la révocation de la clé API')
+}
+
 export async function blockUser(userId) {
   const res = await fetch(`${API}/api/social/block/${userId}`, {
     method: 'POST',
