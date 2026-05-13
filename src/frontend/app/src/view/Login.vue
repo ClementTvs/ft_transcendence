@@ -10,8 +10,11 @@ const router = useRouter();
 const showPassword = ref(false);
 
 async function handleLogin() {
+  error.value = ''
+  if (!username.value.trim()) return (error.value = 'Veuillez saisir votre nom d\'utilisateur.')
+  if (!password.value) return (error.value = 'Veuillez saisir votre mot de passe.')
   try {
-    await login(username.value, password.value);
+    await login(username.value.trim(), password.value);
     router.push('/')
   } catch (e) {
     error.value = e.message;
