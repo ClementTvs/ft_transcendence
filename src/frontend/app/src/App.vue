@@ -209,6 +209,8 @@ onMounted(async () => {
     :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-rose-50 border-rose-200'"
     class="flex justify-between items-center h-16 px-6 border-b sticky top-0 z-50"
   >
+  <div class="flex gap-3">
+    <img src="../public/logo.png" class="h-9 w-9"/>
     <router-link to="/profile" class="flex items-center gap-3 group flex-shrink-0">
       <div class="relative">
         <img
@@ -229,6 +231,7 @@ onMounted(async () => {
         {{ user?.display_name || user?.username || '' }}
       </span>
     </router-link>
+  </div>
 
     <div class="flex items-center gap-1">
       <router-link

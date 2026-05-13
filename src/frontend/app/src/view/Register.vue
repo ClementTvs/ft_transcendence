@@ -8,12 +8,11 @@ const password = ref('');
 const email = ref('');
 const error = ref('');
 const router = useRouter();
-
 const showPassword = ref(false);
 
 async function handleRegister() {
   try {
-    await register(username.value, email.value ,password.value);
+    await register(username.value, email.value, password.value);
     router.push('/login')
   } catch (e) {
     error.value = e.message;
@@ -22,16 +21,18 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-rose-50">
+  <div class="min-h-screen flex flex-col items-center justify-center bg-rose-50 py-12">
+    <img src="/biglogo.png" alt="GamingHub" class="h-32 mb-8" />
+
     <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-4">
       <h2 class="text-2xl font-bold text-center text-gray-800">S'enregistrer</h2>
-
-    <input v-model="email" type="text" placeholder="E-mail"
-            class="w-full border border-rose-200 rounded-lg p-3 focus:outline-none focus:border-rose-400" />
-
+      
+      <input v-model="email" type="text" placeholder="E-mail"
+        class="w-full border border-rose-200 rounded-lg p-3 focus:outline-none focus:border-rose-400" />
+      
       <input v-model="username" type="text" placeholder="Nom d'utilisateur"
         class="w-full border border-rose-200 rounded-lg p-3 focus:outline-none focus:border-rose-400" />
-
+      
       <div class="relative">
         <input v-model="password"
           :type="showPassword ? 'text' : 'password'"
@@ -48,8 +49,9 @@ async function handleRegister() {
           </svg>
         </button>
       </div>
+      
       <p v-if="error" class="text-red-500 text-sm text-center">{{ error }}</p>
-
+      
       <button @click="handleRegister"
         class="w-full border border-rose-300 text-rose-500 rounded-lg p-3 hover:bg-rose-50">
         Créer un compte

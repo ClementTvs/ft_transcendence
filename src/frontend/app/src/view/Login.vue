@@ -7,7 +7,6 @@ const username = ref('');
 const password = ref('');
 const error = ref('');
 const router = useRouter();
-
 const showPassword = ref(false);
 
 async function handleLogin() {
@@ -21,13 +20,15 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-rose-50">
+  <div class="min-h-screen flex flex-col items-center justify-center bg-rose-50 py-12">
+    <img src="/biglogo.png" alt="GamingHub" class="h-32 mb-8" />
+
     <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-4">
       <h2 class="text-2xl font-bold text-center text-gray-800">Se connecter</h2>
-
+      
       <input v-model="username" type="text" placeholder="Nom d'utilisateur"
         class="w-full border border-rose-200 rounded-lg p-3 focus:outline-none focus:border-rose-400" />
-
+      
       <div class="relative">
         <input v-model="password"
           :type="showPassword ? 'text' : 'password'"
@@ -44,15 +45,17 @@ async function handleLogin() {
           </svg>
         </button>
       </div>
+      
       <router-link to="/forgot-password" class="text-sm text-rose-400 hover:text-rose-500 text-right">
         Mot de passe oublié ?
       </router-link>
+      
       <p v-if="error" class="text-red-500 text-sm text-center">{{ error }}</p>
+      
       <button @click="handleLogin"
         class="w-full bg-rose-400 text-white rounded-lg p-3 hover:bg-rose-500">
         Connexion
       </button>
-
       <button @click="$router.push('/register')"
         class="w-full border border-rose-300 text-rose-500 rounded-lg p-3 hover:bg-rose-50">
         Créer un compte

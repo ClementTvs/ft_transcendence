@@ -31,7 +31,7 @@ const router = createRouter({
     { path: '/settings', component: Settings, meta: { requiresAuth:true }},
     { path: '/forgot-password', component: ForgotPassword },
     { path: '/reset-password', component: ResetPassword },
-    { path: '/:pathMatch(.*)*', component: NotFound},
+    { path: '/:pathMatch(.*)*', component: NotFound}, 
   ],
 })
 
