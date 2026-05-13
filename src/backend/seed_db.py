@@ -152,31 +152,34 @@ def hash_pass(password: str) -> str:
     return bcrypt.hashpw(password.encode(), salt).decode()
 
 
-def seed_database():
+def seed_database(reset=False):
     """Populate database with test data."""
     engine = create_engine(DATABASE_URL)
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
     try:
-        # Clear existing data
-        print("🧹 Clearing existing data...")
-        db.query(Notification).delete()
-        db.query(Message).delete()
-        db.query(Conversation).delete()
-        db.query(Like).delete()
-        db.query(Comment).delete()
-        db.query(Post).delete()
-        db.query(Block).delete()
-        db.query(Follow).delete()
-        db.query(User).delete()
-        db.commit()
-        print("✓ Database cleared")
+        if reset:
+            # Clear existing data
+            print("🧹 Clearing existing data...")
+            db.query(Notification).delete()
+            db.query(Message).delete()
+            db.query(Conversation).delete()
+            db.query(Like).delete()
+            db.query(Comment).delete()
+            db.query(Post).delete()
+            db.query(Block).delete()
+            db.query(Follow).delete()
+            db.query(User).delete()
+            db.commit()
+            print("✓ Database cleared")
 
-        # Create users
+        base_time = datetime.utcnow()
+
+        # Create users (upsert by username)
         print("\n👥 Creating users...")
         users = []
-        base_time = datetime.utcnow()
+        created_users = 0
 
         test_accounts = [
             {
@@ -196,42 +199,53 @@ def seed_database():
         ]
 
         for account in test_accounts:
-            user = User(
-                username=account["username"],
-                email=account["email"],
-                hashed_password=hash_pass(account["password"]),
-                display_name=account["display_name"],
-                bio=account["bio"],
-                avatar_url=f"/def_user.png",
-                is_active=True,
-                created_at=base_time - timedelta(days=randint(1, 30)),
-            )
+            user = db.query(User).filter(User.username == account["username"]).first()
+            if not user:
+                user = User(
+                    username=account["username"],
+                    email=account["email"],
+                    hashed_password=hash_pass(account["password"]),
+                    display_name=account["display_name"],
+                    bio=account["bio"],
+                    avatar_url="/def_user.png",
+                    is_active=True,
+                    created_at=base_time - timedelta(days=randint(1, 30)),
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                created_users += 1
             users.append(user)
-            db.add(user)
 
-        for i, (username, display_name, bio) in enumerate(
-            zip(USERNAMES, DISPLAY_NAMES, BIOS)
-        ):
-            user = User(
-                username=username,
-                email=f"{username}@example.com",
-                hashed_password=hash_pass("password123"),
-                display_name=display_name,
-                bio=bio,
-                avatar_url=f"/def_user.png",
-                is_active=True,
-                created_at=base_time - timedelta(days=randint(1, 30)),
-            )
+        for username, display_name, bio in zip(USERNAMES, DISPLAY_NAMES, BIOS):
+            user = db.query(User).filter(User.username == username).first()
+            if not user:
+                user = User(
+                    username=username,
+                    email=f"{username}@example.com",
+                    hashed_password=hash_pass("password123"),
+                    display_name=display_name,
+                    bio=bio,
+                    avatar_url="/def_user.png",
+                    is_active=True,
+                    created_at=base_time - timedelta(days=randint(1, 30)),
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                created_users += 1
             users.append(user)
-            db.add(user)
 
-        db.commit()
-        print(f"✓ Created {len(users)} users")
+        print(f"✓ Users prêts: {len(users)} ({created_users} créés, {len(users) - created_users} déjà existants)")
 
-        # Create posts
+        # Create posts (complement up to 30)
         print("\n📝 Creating posts...")
-        posts = []
-        for _ in range(30):
+        posts = db.query(Post).all()
+        created_posts = 0
+        target_posts = 30
+        to_create = max(0, target_posts - len(posts))
+
+        for _ in range(to_create):
             post = Post(
                 content=choice(POST_CONTENTS),
                 author_id=choice(users).id,
@@ -239,33 +253,36 @@ def seed_database():
             )
             posts.append(post)
             db.add(post)
+            created_posts += 1
 
         db.commit()
-        print(f"✓ Created {len(posts)} posts")
+        print(f"✓ Posts prêts: {len(posts)} ({created_posts} créés)")
 
-        # Create comments
+        # Create comments (complement up to 50)
         print("\n💬 Creating comments...")
-        comments = []
-        for _ in range(50):
+        comment_count = db.query(Comment).count()
+        created_comments = 0
+        target_comments = 50
+        to_create = max(0, target_comments - comment_count)
+
+        for _ in range(to_create):
             comment = Comment(
                 content=choice(COMMENTS),
                 post_id=choice(posts).id,
                 author_id=choice(users).id,
                 created_at=base_time - timedelta(days=randint(0, 15), hours=randint(0, 23)),
             )
-            comments.append(comment)
             db.add(comment)
+            created_comments += 1
 
         db.commit()
-        print(f"✓ Created {len(comments)} comments")
+        print(f"✓ Comments prêts: {comment_count + created_comments} ({created_comments} créés)")
 
-        # Create likes
+        # Create likes (upsert by post_id + user_id)
         print("\n❤️ Creating likes...")
-        likes = []
+        created_likes = 0
         for post in posts:
-            # Each post gets 1-8 random likes
             for user in sample(users, randint(1, min(8, len(users)))):
-                # Avoid duplicate likes
                 existing = db.query(Like).filter(
                     Like.post_id == post.id,
                     Like.user_id == user.id
@@ -276,23 +293,22 @@ def seed_database():
                         user_id=user.id,
                         created_at=base_time - timedelta(days=randint(0, 15)),
                     )
-                    likes.append(like)
                     db.add(like)
+                    created_likes += 1
 
         db.commit()
-        print(f"✓ Created {len(likes)} likes")
+        total_likes = db.query(Like).count()
+        print(f"✓ Likes prêts: {total_likes} ({created_likes} créés)")
 
-        # Create follows
+        # Create follows (upsert by follower_id + followed_id)
         print("\n👫 Creating follows...")
-        follows = []
+        created_follows = 0
         for user in users:
-            # Each user follows 3-8 random other users
             targets = sample(
                 [u for u in users if u.id != user.id],
                 randint(3, min(8, len(users) - 1))
             )
             for target in targets:
-                # Avoid duplicate follows
                 existing = db.query(Follow).filter(
                     Follow.follower_id == user.id,
                     Follow.followed_id == target.id
@@ -303,24 +319,23 @@ def seed_database():
                         followed_id=target.id,
                         created_at=base_time - timedelta(days=randint(0, 30)),
                     )
-                    follows.append(follow)
                     db.add(follow)
+                    created_follows += 1
 
         db.commit()
-        print(f"✓ Created {len(follows)} follows")
+        total_follows = db.query(Follow).count()
+        print(f"✓ Follows prêts: {total_follows} ({created_follows} créés)")
 
-        # Create blocks
+        # Create blocks (upsert by blocker_id + blocked_id)
         print("\n🚫 Creating blocks...")
-        blocks = []
+        created_blocks = 0
         for user in users:
-            # Randomly, some users block 0-2 others
             if choice([True, False, False]):  # 33% chance
                 targets = sample(
                     [u for u in users if u.id != user.id],
                     randint(0, 2)
                 )
                 for target in targets:
-                    # Avoid duplicate blocks
                     existing = db.query(Block).filter(
                         Block.blocker_id == user.id,
                         Block.blocked_id == target.id
@@ -330,30 +345,29 @@ def seed_database():
                             blocker_id=user.id,
                             blocked_id=target.id,
                         )
-                        blocks.append(block)
                         db.add(block)
+                        created_blocks += 1
 
         db.commit()
-        print(f"✓ Created {len(blocks)} blocks")
+        total_blocks = db.query(Block).count()
+        print(f"✓ Blocks prêts: {total_blocks} ({created_blocks} créés)")
 
         # Print summary
         print("\n" + "="*50)
         print("✨ Database seeded successfully! ✨")
         print("="*50)
         print(f"📊 Summary:")
-        print(f"   • Users: {len(users)}")
-        print(f"   • Posts: {len(posts)}")
-        print(f"   • Comments: {len(comments)}")
-        print(f"   • Likes: {len(likes)}")
-        print(f"   • Follows: {len(follows)}")
-        print(f"   • Blocks: {len(blocks)}")
+        print(f"   • Users:    {len(users)}")
+        print(f"   • Posts:    {len(posts)}")
+        print(f"   • Comments: {comment_count + created_comments}")
+        print(f"   • Likes:    {total_likes}")
+        print(f"   • Follows:  {total_follows}")
+        print(f"   • Blocks:   {total_blocks}")
         print("="*50)
         print("\n🔐 Test credentials:")
-        for username in USERNAMES:
-            print(f"   Username: {username}")
-            print(f"   Password: password123")
-            break
-        print("   (same for all users)")
+        print("   Email:    test@test.fr  /  test2@test.fr")
+        print("   Password: test123")
+        print("   (other users: password123)")
         print("="*50)
 
     except Exception as e:
@@ -367,4 +381,19 @@ def seed_database():
 
 
 if __name__ == "__main__":
-    seed_database()
+    import argparse
+    parser = argparse.ArgumentParser(description="Seed the database with test data.")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Vider complètement la DB avant de seed (ATTENTION: supprime toutes les données)"
+    )
+    args = parser.parse_args()
+
+    if args.reset:
+        confirm = input("⚠️  Voulez-vous vraiment vider la DB ? (oui/non) : ")
+        if confirm.strip().lower() != "oui":
+            print("Annulé.")
+            sys.exit(0)
+
+    seed_database(reset=args.reset)

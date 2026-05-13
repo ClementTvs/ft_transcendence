@@ -26,7 +26,8 @@ export async function login(username, password) {
     body: formData
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.detail)
+  if (!res.ok) 
+    throw new Error("Nom d'utilisateur ou mot de passe incorrect")
   localStorage.setItem('token', data.access_token)
   return data
 }
@@ -64,13 +65,22 @@ export async function getProfile() {
   return res.json()
 }
 
-export async function updateProfile(data) {
+export async function updateProfile(payload) {
   const res = await fetch(`${API}/api/users/me`, {
     method: 'PUT',
     headers: getHeaders(),
-    body: JSON.stringify(data)
+    body: JSON.stringify(payload)
   })
-  if (!res.ok) throw new Error('Erreur mise à jour profil')
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || 'Erreur mise à jour')
+  }
+
+  const newAccess = res.headers.get('X-New-Access-Token')
+  const newRefresh = res.headers.get('X-New-Refresh-Token')
+  if (newAccess) localStorage.setItem('token', newAccess)
+  if (newRefresh) localStorage.setItem('refresh_token', newRefresh)
+
   return res.json()
 }
 
