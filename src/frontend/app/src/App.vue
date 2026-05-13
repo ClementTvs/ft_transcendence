@@ -73,6 +73,14 @@ watch(searchQuery, (val) => {
   }, 300)
 })
 
+async function handleNavigation (to){
+  if (route.path === to) {
+    window.location.reload()
+    return
+  }
+  await router.push(to)
+}
+
 function goToUser(userId) {
   searchQuery.value = ''
   showSearchResults.value = false
@@ -134,6 +142,7 @@ function getNotifText(notif) {
     case 'like': return `${actor} a aimé votre post`
     case 'comment': return `${actor} a commenté votre post`
     case 'follow': return `${actor} vous suit`
+    case 'message': return `${actor} vous a envoyé un message`
     default: return `${actor} — ${notif.type}`
   }
 }
@@ -173,7 +182,7 @@ function connectNotifWS() {
       notifications.value.unshift({
         id: Date.now(),
         type: data.type,
-        actor: { username: data.actor_username },
+        actor: { id: data.actor_id, username: data.actor_username },
         created_at: new Date().toISOString(),
         is_read: false,
         post_id: data.post_id ?? null,
@@ -238,6 +247,7 @@ onMounted(async () => {
         ]"
         :key="link.to"
         :to="link.to"
+        @click="handleNavigation(link.to)"
         :class="[
           isActive(link.to)
             ? (dark ? 'text-white bg-white/10' : 'text-rose-600 bg-rose-100')
@@ -345,7 +355,7 @@ onMounted(async () => {
                 dark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-50 hover:bg-gray-50'
               ]"
               class="px-4 py-3 border-b transition-colors flex items-start gap-3 cursor-pointer"
-              @click="notif.actor && goToUser(notif.actor.id); showNotifDropdown = false"
+              @click="if (notif.actor) { notif.type === 'message' ? router.push(`/chat/${notif.actor.id}`) : goToUser(notif.actor.id) }; showNotifDropdown = false"
             >
               <img :src="avatarUrl(notif.actor)" class="h-8 w-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
               <div class="flex-1 min-w-0">

@@ -1,7 +1,7 @@
-COMPOSE = docker compose -f docker-compose.yaml
+COMPOSE = docker compose
 
 all:
-	@$(COMPOSE) up -d --build
+	$(COMPOSE) up --build
 
 clean:
 	@$(COMPOSE) down -v
@@ -11,4 +11,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re status logs
+.PHONY: all clean fclean re

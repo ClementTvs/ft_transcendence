@@ -7,6 +7,7 @@ import Explore from "../view/Explore.vue"
 import PostDetail from "../view/PostDetail.vue"
 import Login from "../view/Login.vue"
 import ForgotPassword from '../view/ForgotPassword.vue'
+import ResetPassword from '../view/ResetPassword.vue'
 import Register from '../view/Register.vue'
 import { useUserStore } from '../stores/user'
 import Settings from '../view/Settings.vue'
@@ -29,6 +30,7 @@ const router = createRouter({
     { path: '/register', component: Register },
     { path: '/settings', component: Settings, meta: { requiresAuth:true }},
     { path: '/forgot-password', component: ForgotPassword },
+    { path: '/reset-password', component: ResetPassword },
     { path: '/:pathMatch(.*)*', component: NotFound},
   ],
 })

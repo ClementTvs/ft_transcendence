@@ -27,6 +27,7 @@ const messagesContainer = ref(null)
 const searchQuery = ref('')
 
 let ws = null
+let onlineRefreshInterval = null
 
 function avatarUrl(u) {
   if (!u?.avatar_url) return '/def_user.png'
@@ -182,6 +183,9 @@ onMounted(async () => {
 
   connectWS()
 
+  // Refresh conversations every 5s to keep online status up to date
+  onlineRefreshInterval = setInterval(refreshConversations, 5000)
+
   const targetUserId = route.params.userId
   if (targetUserId) {
     await openConversationWithUser(Number(targetUserId))
@@ -200,6 +204,9 @@ onUnmounted(() => {
   if (ws) {
     ws.onclose = null
     ws.close()
+  }
+  if (onlineRefreshInterval) {
+    clearInterval(onlineRefreshInterval)
   }
 })
 </script>

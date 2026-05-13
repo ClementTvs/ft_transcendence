@@ -151,13 +151,17 @@ async function save() {
   return changed
 }
 
+const deleteError = ref('')
+
 async function onDeleteAccount() {
   try {
     deleting.value = true
+    deleteError.value = ''
     await deleteAccount()
     userStore.logout()
   } catch (err) {
     console.error('Delete failed:', err)
+    deleteError.value = 'Une erreur est survenue. Veuillez réessayer.'
   } finally {
     deleting.value = false
   }
@@ -717,6 +721,7 @@ const themes = [
                     {{ deleting ? 'Suppression...' : 'Oui, supprimer' }}
                   </button>
                 </div>
+                <p v-if="deleteError" class="text-red-500 text-sm mt-3 text-right">{{ deleteError }}</p>
               </div>
             </div>
           </div>

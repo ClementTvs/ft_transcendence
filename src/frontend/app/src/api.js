@@ -342,6 +342,19 @@ export async function deleteAccount() {
   return true
 }
 
+export async function resetPassword(token, newPassword) {
+  const res = await fetch(`${API}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ token, new_password: newPassword })
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || 'Lien invalide ou expiré')
+  }
+  return res.json()
+}
+
 export async function forgotPassword(email) 
 { 
   const res = await fetch(`${API}/api/auth/forgot-password`, {
