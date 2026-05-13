@@ -76,7 +76,6 @@ function bannerUrl() {
 async function handleSave() {
   try {
     const changed = await save()
-    console.log(saved.value)
     if (changed) {
       saved.value = true
       setTimeout(() => { saved.value = false }, 2500)

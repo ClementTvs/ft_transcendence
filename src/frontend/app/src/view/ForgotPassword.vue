@@ -31,7 +31,6 @@ async function handleSubmit()
   loading.value = true 
   try { 
   const data = await forgotPassword(email.value) 
-  console.log(data.message) 
   } 
   catch (err) { 
   console.error(err) 
