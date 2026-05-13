@@ -22,12 +22,12 @@
 
 ## Team Information
 
-| Login | Role | Responsibilities |
+| Login | Role
 |---|---|---|
-| alribeyr | TBD | TBD |
-| gvalogne | TBD | TBD |
-| ctravers | TBD | TBD |
-| artperez | TBD | TBD |
+| alribeyr | PM | DEV |
+| gvalogne | TL | DEV |
+| ctravers | PO | DEV |
+| artperez | DEV |
 
 ---
 
@@ -192,63 +192,65 @@ docker compose build --no-cache && docker compose up
 
 ## Features List
 
-| Feature | Description | Team member(s) |
+| Feature | Description
 |---|---|---|
-| User registration & login | Email + password auth, bcrypt-hashed passwords, JWT tokens | TBD |
-| Profile management | Edit username, email, bio, avatar, banner | TBD |
-| Password reset | Email-based reset with expiring JWT token | TBD |
-| Posts | Create (with image + game tag), edit, delete, view feed | TBD |
-| Likes & comments | Like/unlike posts, comment thread per post | TBD |
-| Follow / unfollow | Follow users, view followers/following lists | TBD |
-| Block / unblock | Block users, removes follow relationship both ways | TBD |
-| User search | Search by username or display name from the navbar | TBD |
-| Explore page | Discover posts and users | TBD |
-| Real-time chat | 1-on-1 private messages via WebSocket, read receipts | TBD |
-| Live notifications | Follow, like, comment, message events via WebSocket | TBD |
-| Game tagging | Attach a game to a post via RAWG public API search | TBD |
-| Image uploads | Avatar, banner, and post images stored on disk | TBD |
-| Dark / light theme | Toggle persisted in localStorage | TBD |
-| Privacy Policy & Terms | Accessible pages with real content, linked in footer | TBD |
-| Account deletion | Hard delete with full cascade cleanup | TBD |
-| Additional browser support | Chrome + Firefox compatibility | TBD |
+| User registration & login | Email + password auth, bcrypt-hashed passwords, JWT tokens
+| Profile management | Edit username, email, bio, avatar, banner
+| Password reset | Email-based reset with expiring JWT token
+| Posts | Create (with image + game tag), edit, delete, view feed
+| Likes & comments | Like/unlike posts, comment thread per post
+| Follow / unfollow | Follow users, view followers/following lists
+| Block / unblock | Block users, removes follow relationship both ways
+| User search | Search by username or display name from the navbar
+| Explore page | Discover posts and users
+| Real-time chat | 1-on-1 private messages via WebSocket, read receipts
+| Live notifications | Follow, like, comment, message events via WebSocket
+| Game tagging | Attach a game to a post via RAWG public API search
+| Image uploads | Avatar, banner, and post images stored on disk
+| Dark / light theme | Toggle persisted in localStorage
+| Privacy Policy & Terms | Accessible pages with real content, linked in footer
+| Account deletion | Hard delete with full cascade cleanup
+| Additional browser support | Chrome + Firefox compatibility
 
 ---
 
 ## Modules
 
-> Major module = 2 pts · Minor module = 1 pt
-
-| Module | Type | Points | Description | Implemented by |
+| Module | Type | Points |
 |---|---|---|---|---|
-| Frontend framework (Vue.js) | Major | 2 | Full SPA using Vue 3 + Vite + Pinia | TBD |
-| Backend framework (FastAPI) | Major | 2 | REST + WebSocket API with FastAPI | TBD |
-| Database ORM (SQLAlchemy) | Minor | 1 | All DB access via SQLAlchemy ORM | TBD |
-| User management | Major | 2 | Registration, login, profile, avatar | TBD |
-| WebSockets (chat + notifications) | Major | 2 | Real-time messaging and notification delivery | TBD |
-| User interactions (follow/block) | Minor | 1 | Follow, unfollow, block, unblock | TBD |
-| Live notifications | Minor | 1 | Real-time in-app notification system | TBD |
-| Public API integration (RAWG) | Minor | 1 | Game search and tagging on posts | TBD |
-| File management | Minor | 1 | Image upload (avatar, banner, post images) | TBD |
-| Additional browser support | Minor | 1 | Chrome + Firefox compatibility | TBD |
-| Advanced chat features | Major | 2 | Read receipts, conversation list, real-time updates | TBD |
+| Both sides framework | Major | 2 |
+| Frontend framework (Vue.js) | Minor | 1 | Full SPA using Vue 3 + Vite + Pinia
+| Backend framework (FastAPI) | Minor | 1 | REST + WebSocket API with FastAPI
+| WebSockets (chat + notifications) | Major | 2 |
+| User interactions (follow/block) | Major | 2 |
+| Public API | Major | 2 |
+| Database ORM (SQLAlchemy) | Minor | 1 |
+| Advanced search | Minor | 1 |
+| File upload | Minor | 1 |
+| Additional browser support | Minor | 1 |
+| User management | Major | 2 |
+| Advanced Chat features | Minor | 1 |
+
+
+> Total points = 17 pts
 
 ## Individual Contributions
 
 ### alribeyr
-- TBD
-- Challenges: TBD
+- Backend
+- Challenges: Learn backend oriented python + framework
 
 ### gvalogne
-- TBD
-- Challenges: TBD
+- Backend
+- Challenges: Make chat and encryption on database
 
 ### ctravers
-- TBD
-- Challenges: TBD
+- Frontend
+- Challenges: Learn frontend + chat integration
 
 ### artperez
-- TBD
-- Challenges: TBD
+- Frontend
+- Challenges: Learn frontend
 
 ---
 
@@ -267,21 +269,15 @@ docker compose build --no-cache && docker compose up
 
 ### AI Usage
 
-GitHub Copilot (Claude Sonnet) was used throughout the project for the following tasks:
+AI was used throughout the project for the following tasks:
 
-- **Backend architecture** — generating boilerplate for FastAPI routers, SQLAlchemy models, and Pydantic schemas
-- **WebSocket implementation** — designing the `ConnectionManager` and real-time notification/chat flows
-- **Bug fixing** — diagnosing issues such as missing `subjectAltName` in the TLS cert (causing Chrome WebSocket failures), stale WS connection crashes, and cascade delete FK violations
+- **Ressources** — finding relevant ressources for tools used
 - **Security review** — checking auth flows (JWT signing, bcrypt hashing, rate limiting)
-- **Frontend components** — scaffolding Vue components and Pinia stores
-- **Code explanations** — understanding library internals (SQLAlchemy cascades, FastAPI dependency injection)
-
-All AI-generated code was reviewed, understood, and adapted by team members before being committed.
+- **Tools explanations** — understanding library internals (SQLAlchemy cascades, FastAPI dependency injection)
 
 ---
 
 ## Known Limitations
 
 - Self-signed TLS certificate requires manual browser exception on first visit.
-- Password reset emails require external SMTP configuration; without it the reset URL is only available in backend logs.
 - Images are stored inside a Docker volume — no CDN or external object storage.
