@@ -73,6 +73,14 @@ watch(searchQuery, (val) => {
   }, 300)
 })
 
+async function handleNavigation (to){
+  if (route.path === to) {
+    window.location.reload()
+    return
+  }
+  await router.push(to)
+}
+
 function goToUser(userId) {
   searchQuery.value = ''
   showSearchResults.value = false
@@ -194,11 +202,24 @@ onMounted(async () => {
     try {
       await userStore.fetchUser()
       await fetchUnreadCount()
-      connectNotifWS()                                                                         // ca aussi
+      connectNotifWS()
     } catch {
       localStorage.removeItem('token')
       router.push('/login')
     }
+  }
+})
+
+// Connect WS when user logs in after the app was already mounted (e.g. arriving from /login)
+watch(() => userStore.user, (newUser, oldUser) => {
+  if (newUser && !oldUser) {
+    fetchUnreadCount()
+    connectNotifWS()
+  }
+  // Disconnect WS on logout
+  if (!newUser && notifWs) {
+    notifWs.close()
+    notifWs = null
   }
 })
 </script>
@@ -242,6 +263,7 @@ onMounted(async () => {
         ]"
         :key="link.to"
         :to="link.to"
+        @click="handleNavigation(link.to)"
         :class="[
           isActive(link.to)
             ? (dark ? 'text-white bg-white/10' : 'text-rose-600 bg-rose-100')
