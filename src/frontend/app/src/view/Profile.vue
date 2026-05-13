@@ -269,7 +269,6 @@ async function confirmDelete() {
         <button
           v-for="tab in [
             { key: 'posts', label: 'Posts' },
-            { key: 'likes', label: 'Likes' }
           ]"
           :key="tab.key"
           :class="[
@@ -296,7 +295,6 @@ async function confirmDelete() {
             :class="dark ? 'bg-gray-900 border-gray-700 hover:shadow-gray-900/50' : 'bg-white border-rose-100 hover:shadow-rose-100/50'"
             class="relative rounded-xl border p-4 hover:shadow-md transition-shadow cursor-pointer"
           >
-            <!-- Menu options (only for own posts) -->
             <div
               v-if="post.author_id === user?.id"
               class="absolute top-3 right-3 z-10"
@@ -315,7 +313,6 @@ async function confirmDelete() {
                 </svg>
               </button>
 
-              <!-- Dropdown -->
               <div
                 v-if="openMenuPostId === post.id"
                 :class="dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-rose-100'"
@@ -348,7 +345,6 @@ async function confirmDelete() {
               </div>
             </div>
 
-            <!-- Game tag -->
             <span v-if="parsePost(post).game" :class="dark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'" class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4m-2-2v4m6-1h.01m4 0h.01"/></svg>
               {{ parsePost(post).game }}
@@ -356,7 +352,6 @@ async function confirmDelete() {
 
             <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-sm leading-relaxed mb-3 whitespace-pre-wrap">{{ parsePost(post).content }}</p>
 
-            <!-- Image -->
             <img
               v-if="post.image_url"
               :src="post.image_url.startsWith('http') ? post.image_url : `${API}${post.image_url}`"
@@ -381,21 +376,15 @@ async function confirmDelete() {
             </div>
           </div>
         </div>
-
-        <div v-if="activeTab === 'likes'" :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-center py-12 text-sm">
-          Posts likés à venir...
-        </div>
       </div>
     </div>
 
-    <!-- Backdrop pour fermer le menu options -->
     <div
       v-if="openMenuPostId !== null"
       class="fixed inset-0 z-[5]"
       @click="closeMenu"
     />
 
-    <!-- Modal de confirmation suppression -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition duration-200 ease-out"
