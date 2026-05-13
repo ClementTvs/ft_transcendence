@@ -17,10 +17,12 @@ import os
 import sys
 from datetime import datetime, timedelta
 from random import randint, choice, choices, sample
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Add app directory to path
-sys.path.insert(0, '/Users/ziratya/Documents/Dev/42/Cursus/circle6/transcendence/src/backend')
+# Add app directory to path (works regardless of where the script is run from)
+SCRIPT_DIR = Path(__file__).parent.absolute()
+sys.path.insert(0, str(SCRIPT_DIR))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -37,7 +39,9 @@ from app.models import (
     Message,
 )
 
-load_dotenv('/Users/ziratya/Documents/Dev/42/Cursus/circle6/transcendence/.env')
+# Load environment variables (find .env in parent directories)
+from dotenv import find_dotenv
+load_dotenv(find_dotenv())
 
 # Database configuration
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
@@ -47,6 +51,12 @@ POSTGRES_HOST = os.getenv("POSTGRES_HOST", "db")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+# Create the database engine and ensure tables exist before seeding
+engine = create_engine(DATABASE_URL)
+Base.metadata.create_all(bind=engine)
+
+SessionLocal = sessionmaker(bind=engine)
 
 # Sample data
 USERNAMES = [
