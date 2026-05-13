@@ -7,7 +7,6 @@ while ! nc -z $POSTGRES_HOST $POSTGRES_PORT; do
 done
 
 echo "Database is ready. Seeding database..."
-python3 seed_db.py
 
 echo "Starting application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
