@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
+from app.models import Block
 
 from app.database import get_db, SessionLocal
 from app.models import User, Conversation, Message
@@ -231,6 +232,18 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
                 ),
             ).first()
             if not conv:
+                continue
+
+            block_exists = db.query(Block).filter(
+                ((Block.blocker_id == user.id) & (Block.blocked_id == to_user_id)) |
+                ((Block.blocker_id == to_user_id) & (Block.blocked_id == user.id))
+            ).first()
+
+            if block_exists:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Vous ne pouvez pas envoyer de message à cet utilisateur"
+                })
                 continue
 
             new_msg = Message(

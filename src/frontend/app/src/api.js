@@ -367,3 +367,32 @@ export async function forgotPassword(email)
   } 
   return await res.json() 
 }
+
+export async function blockUser(userId) {
+  const res = await fetch(`${API}/api/social/block/${userId}`, {
+    method: 'POST',
+    headers: getHeaders()
+  })
+  if (!res.ok) throw new Error('Erreur lors du blocage')
+  return res.json()
+}
+
+export async function unblockUser(userId) {
+  const res = await fetch(`${API}/api/social/unblock/${userId}`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  })
+  if (!res.ok && res.status !== 204) throw new Error('Erreur lors du déblocage')
+  return true
+}
+
+export async function getBlockedUsers() {
+  const res = await fetch(`${API}/api/social/blocked`, { headers: getHeaders() })
+  if (!res.ok) throw new Error('Erreur récupération bloqués')
+  return res.json()
+}
+
+export async function isBlocked(userId) {
+  const blocked = await getBlockedUsers()
+  return blocked.some(u => u.id === userId)
+}

@@ -6,13 +6,17 @@ import { useThemeStore } from '../stores/theme'
 import {
   getConversations, getOrCreateConversation, getMessages, markConversationRead
 } from '../api'
+import { getBlockedUsers } from '../api'
 
+const isBlockedByOther = ref(false)
+const blockedUserIds = ref(new Set())
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const me = computed(() => userStore.user)
 const dark = computed(() => themeStore.dark)
+
 
 const API = ''
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/messages/ws/chat`
@@ -28,6 +32,20 @@ const searchQuery = ref('')
 
 let ws = null
 let onlineRefreshInterval = null
+
+async function loadBlockedUsers() {
+  try {
+    const blocked = await getBlockedUsers()
+    blockedUserIds.value = new Set(blocked.map(u => u.id))
+  } catch (e) {
+    console.error('Erreur chargement bloqués:', e)
+  }
+}
+
+const isOtherBlocked = computed(() => {
+  if (!otherUser.value) return false
+  return blockedUserIds.value.has(otherUser.value.id)
+})
 
 function avatarUrl(u) {
   if (!u?.avatar_url) return '/def_user.png'
@@ -83,7 +101,11 @@ function connectWS() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data)
 
-    // Read receipt
+    if (data.type === 'error') {
+      isBlockedByOther.value = true
+      return
+    }
+
     if (data.type === 'read_receipt') {
       if (data.conversation_id === activeConvId.value) {
         messages.value.forEach(msg => {
@@ -128,6 +150,7 @@ async function refreshConversations() {
 
 async function selectConversation(conv) {
   activeConvId.value = conv.id
+  isBlockedByOther.value = false
   messagesLoading.value = true
 
   try {
@@ -153,6 +176,8 @@ async function sendMessage() {
   const content = newMessage.value.trim()
   if (!content || !activeConvId.value || !otherUser.value || !ws) return
 
+  if (isOtherBlocked.value) return
+
   ws.send(JSON.stringify({
     to_user_id: otherUser.value.id,
     conversation_id: activeConvId.value,
@@ -175,6 +200,7 @@ async function openConversationWithUser(userId) {
 onMounted(async () => {
   try {
     conversations.value = await getConversations()
+    await loadBlockedUsers()
   } catch (e) {
     console.error(e)
   } finally {
@@ -183,7 +209,6 @@ onMounted(async () => {
 
   connectWS()
 
-  // Refresh conversations every 5s to keep online status up to date
   onlineRefreshInterval = setInterval(refreshConversations, 5000)
 
   const targetUserId = route.params.userId
@@ -369,30 +394,70 @@ onUnmounted(() => {
         </div>
 
         <div :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'" class="px-5 py-3 border-t">
-          <div class="flex items-center gap-3">
-            <input
-              v-model="newMessage"
-              @keydown.enter.exact.prevent="sendMessage"
-              placeholder="Écrire un message..."
-              :class="dark
-                ? 'bg-gray-800 text-white placeholder-gray-500 focus:bg-gray-750'
-                : 'bg-rose-50 text-gray-700 placeholder-gray-400 focus:bg-rose-100/50'"
-              class="flex-1 rounded-full px-5 py-2.5 text-sm focus:outline-none transition-colors"
-            />
-            <button
-              @click="sendMessage"
-              :disabled="!newMessage.trim()"
-              :class="newMessage.trim()
-                ? 'bg-gray-900 text-white hover:bg-gray-800'
-                : (dark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')"
-              class="p-2.5 rounded-full transition-all"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          <div v-if="isOtherBlocked"
+            :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'"
+            class="px-5 py-4 border-t text-center"
+          >
+            <div class="flex items-center justify-center gap-2 mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                :class="dark ? 'text-red-400' : 'text-red-500'">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
               </svg>
-            </button>
+              <p :class="dark ? 'text-red-400' : 'text-red-500'" class="text-sm font-medium">
+                Vous avez bloqué cet utilisateur
+              </p>
+            </div>
+            <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-xs">
+              Débloquez-le depuis son profil pour reprendre la conversation
+            </p>
+          </div>
+          <div v-else-if="isBlockedByOther"
+            :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'"
+            class="px-5 py-4 border-t text-center"
+          >
+            <div class="flex items-center justify-center gap-2 mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                :class="dark ? 'text-gray-500' : 'text-gray-400'">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+              </svg>
+              <p :class="dark ? 'text-gray-400' : 'text-gray-500'" class="text-sm font-medium">
+                Vous ne pouvez plus envoyer de messages à cet utilisateur
+              </p>
+            </div>
+          </div>
+          <div v-else
+            :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'"
+            class="px-5 py-3 border-t"
+          >
+            <div class="flex items-center gap-3">
+              <input
+                v-model="newMessage"
+                @keydown.enter.exact.prevent="sendMessage"
+                placeholder="Écrire un message..."
+                :class="dark
+                  ? 'bg-gray-800 text-white placeholder-gray-500 focus:bg-gray-750'
+                  : 'bg-rose-50 text-gray-700 placeholder-gray-400 focus:bg-rose-100/50'"
+                class="flex-1 rounded-full px-5 py-2.5 text-sm focus:outline-none transition-colors"
+              />
+              <button
+                @click="sendMessage"
+                :disabled="!newMessage.trim()"
+                :class="newMessage.trim()
+                  ? 'bg-gray-900 text-white hover:bg-gray-800'
+                  : (dark ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')"
+                class="p-2.5 rounded-full transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </template>

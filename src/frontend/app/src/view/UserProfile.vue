@@ -7,13 +7,20 @@ import {
   getUserStats, getUserPosts, isFollowing, followUser, unfollowUser,
   getOrCreateConversation
 } from '../api'
+import { blockUser, unblockUser, isBlocked } from '../api'
+import { getBlockedUsers } from '../api'
 
+const blocked = ref(false)
+const blockLoading = ref(false)
+const showMenu = ref(false)
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const me = computed(() => userStore.user)
 const dark = computed(() => themeStore.dark)
+const isBlockedByMe = ref(false)
+
 
 const API = ''
 
@@ -25,6 +32,41 @@ const loading = ref(true)
 const followLoading = ref(false)
 
 const isOwnProfile = computed(() => me.value?.id === profile.value?.id)
+
+async function checkBlockStatus(userId) {
+  try {
+    const res = await isBlocked(userId)
+    blocked.value = res.is_blocked
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function handleBlock() {
+  if (!profile.value || blockLoading.value) return
+  
+  const action = isBlockedByMe.value ? 'débloquer' : 'bloquer'
+  if (!confirm(`Voulez-vous vraiment ${action} ${profile.value.username} ?`)) return
+  
+  blockLoading.value = true
+  try {
+    if (isBlockedByMe.value) {
+      await unblockUser(profile.value.id)
+      isBlockedByMe.value = false
+      posts.value = await getUserPosts(profile.value.id)
+    } else {
+      await blockUser(profile.value.id)
+      isBlockedByMe.value = true
+      following.value = false
+      stats.value.follower_count = Math.max(0, stats.value.follower_count - 1)
+      posts.value = []
+    }
+  } catch (e) {
+    console.error('Erreur block:', e)
+  } finally {
+    blockLoading.value = false
+  }
+}
 
 function avatarUrl(u) {
   if (!u?.avatar_url) return '/def_user.png'
@@ -54,15 +96,26 @@ function parsePost(post) {
 
 async function loadProfile(userId) {
   loading.value = true
+  isBlockedByMe.value = false
+  posts.value = []
+  profile.value = null
+  
   try {
-    const data = await getUserStats(userId)
+    const [data, blocked] = await Promise.all([
+      getUserStats(userId),
+      getBlockedUsers().catch(() => [])
+    ])
+    
     profile.value = data
     stats.value = {
       post_count: data.post_count,
       follower_count: data.follower_count,
       following_count: data.following_count
     }
-    posts.value = await getUserPosts(userId)
+    isBlockedByMe.value = blocked.some(u => u.id === userId)
+    if (!isBlockedByMe.value) {
+      posts.value = await getUserPosts(userId)
+    }
     if (me.value && me.value.id !== userId) {
       const res = await isFollowing(userId)
       following.value = res.is_following
@@ -168,12 +221,32 @@ onMounted(() => {
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
                 </svg>
               </button>
+
+              <button
+                @click="handleBlock"
+                :disabled="blockLoading"
+                :class="blocked
+                  ? (dark ? 'border-red-500 text-red-400 bg-red-500/10 hover:bg-red-500/20' : 'border-red-400 text-red-500 bg-red-50 hover:bg-red-100')
+                  : (dark ? 'border-gray-600 text-gray-400 hover:text-red-400 hover:border-red-400 hover:bg-red-500/10' : 'border-gray-300 text-gray-500 hover:text-red-500 hover:border-red-300 hover:bg-red-50')"
+                class="p-2 rounded-full border transition-all"
+                :title="blocked ? 'Débloquer' : 'Bloquer'"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+              </button>
+
               <button
                 @click="handleFollow"
-                :disabled="followLoading"
-                :class="following
-                  ? (dark ? 'border-gray-600 text-gray-300 hover:border-red-400 hover:text-red-400 hover:bg-red-500/10' : 'border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-500 hover:bg-red-50')
-                  : 'bg-gray-900 text-white hover:bg-gray-800 border-gray-900'"
+                :disabled="followLoading || blocked"
+                :class="[
+                  following
+                    ? (dark ? 'border-gray-600 text-gray-300 hover:border-red-400 hover:text-red-400 hover:bg-red-500/10' : 'border-gray-300 text-gray-700 hover:border-red-300 hover:text-red-500 hover:bg-red-50')
+                    : 'bg-gray-900 text-white hover:bg-gray-800 border-gray-900',
+                  blocked ? 'opacity-50 cursor-not-allowed' : ''
+                ]"
                 class="px-5 py-2 rounded-full border text-sm font-semibold transition-all"
               >
                 {{ followLoading ? '...' : (following ? 'Suivi ✓' : 'Suivre') }}
@@ -208,8 +281,15 @@ onMounted(() => {
             <div :class="dark ? 'text-gray-500' : 'text-rose-300'" class="text-xs uppercase tracking-wide">Following</div>
           </div>
         </div>
-
-        <div class="py-4">
+        <div v-if="isBlockedByMe" class="text-center py-12">
+          <p :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-sm mb-2">
+            Vous avez bloqué cet utilisateur
+          </p>
+          <p :class="dark ? 'text-gray-600' : 'text-gray-300'" class="text-xs">
+            Débloquez-le pour voir ses posts
+          </p>
+        </div>
+        <div v-else class="py-4">
           <div v-if="posts.length === 0" :class="dark ? 'text-gray-500' : 'text-gray-400'" class="text-center py-12 text-sm">Aucun post</div>
           <div
             v-for="post in posts" :key="post.id"
@@ -225,7 +305,6 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Game tag -->
             <span v-if="parsePost(post).game" :class="dark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'" class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4m-2-2v4m6-1h.01m4 0h.01"/></svg>
               {{ parsePost(post).game }}
@@ -233,7 +312,6 @@ onMounted(() => {
 
             <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-[15px] leading-relaxed whitespace-pre-wrap">{{ parsePost(post).content }}</p>
 
-            <!-- Image -->
             <img
               v-if="post.image_url"
               :src="post.image_url.startsWith('http') ? post.image_url : `${API}${post.image_url}`"
