@@ -13,7 +13,9 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
 RUN mkdir -p /etc/nginx/ssl && apk add openssl
-RUN openssl req -x509 -nodes -out /etc/nginx/ssl/transcendence.crt -keyout /etc/nginx/ssl/transcendence.key -subj "/C=FR/ST=IDF/L=Perpignan/O=42/OU=42/CN=localhost"
+RUN openssl req -x509 -nodes -out /etc/nginx/ssl/transcendence.crt -keyout /etc/nginx/ssl/transcendence.key \
+    -subj "/C=FR/ST=IDF/L=Perpignan/O=42/OU=42/CN=localhost" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

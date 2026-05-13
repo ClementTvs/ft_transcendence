@@ -9,7 +9,7 @@ from app.database import get_db, SessionLocal
 from app.models import User, Conversation, Message
 from app.schemas import MessageResponse, ConversationResponse
 from app.auth import get_current_active_user, verify_token
-from app.ws_manager import manager
+from app.ws_manager import manager, notif_manager
 from app.crypto import encrypt_message, decrypt_message
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
@@ -253,6 +253,18 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
 
             await manager.send_to_user(to_user_id, payload)
             await manager.send_to_user(user.id, payload)
+
+            # Push a notification to the recipient via the notification WS
+            try:
+                await notif_manager.send_to_user(to_user_id, {
+                    "type": "message",
+                    "actor_id": user.id,
+                    "actor_username": user.username,
+                    "conversation_id": conv_id,
+                })
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Could not send message notif to %s: %s", to_user_id, e)
 
     except WebSocketDisconnect:
         pass

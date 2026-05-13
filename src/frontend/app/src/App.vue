@@ -134,6 +134,7 @@ function getNotifText(notif) {
     case 'like': return `${actor} a aimé votre post`
     case 'comment': return `${actor} a commenté votre post`
     case 'follow': return `${actor} vous suit`
+    case 'message': return `${actor} vous a envoyé un message`
     default: return `${actor} — ${notif.type}`
   }
 }
@@ -345,7 +346,7 @@ onMounted(async () => {
                 dark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-50 hover:bg-gray-50'
               ]"
               class="px-4 py-3 border-b transition-colors flex items-start gap-3 cursor-pointer"
-              @click="notif.actor && goToUser(notif.actor.id); showNotifDropdown = false"
+              @click="if (notif.actor) { notif.type === 'message' ? router.push(`/chat/${notif.actor.id}`) : goToUser(notif.actor.id) }; showNotifDropdown = false"
             >
               <img :src="avatarUrl(notif.actor)" class="h-8 w-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
               <div class="flex-1 min-w-0">

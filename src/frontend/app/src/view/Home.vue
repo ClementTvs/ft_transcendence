@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
@@ -24,6 +24,7 @@ const posting = ref(false)
 const suggestions = ref([])
 const following = ref([])
 const feedLoading = ref(true)
+let onlineInterval = null
 
 // Image upload
 const newPostImage = ref(null)
@@ -186,6 +187,15 @@ onMounted(async () => {
     try { suggestions.value = await getSuggestions() } catch (e) { console.error(e) }
     try { following.value = await getFollowing(user.value.id) } catch (e) { console.error(e) }
   }
+  onlineInterval = setInterval(async () => {
+    if (user.value) {
+      try { following.value = await getFollowing(user.value.id) } catch (e) { console.error(e) }
+    }
+  }, 5000)
+})
+
+onUnmounted(() => {
+  if (onlineInterval) clearInterval(onlineInterval)
 })
 </script>
 
