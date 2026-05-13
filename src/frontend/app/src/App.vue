@@ -73,6 +73,14 @@ watch(searchQuery, (val) => {
   }, 300)
 })
 
+async function handleNavigation (to){
+  if (route.path === to) {
+    window.location.reload()
+    return
+  }
+  await router.push(to)
+}
+
 function goToUser(userId) {
   searchQuery.value = ''
   showSearchResults.value = false
@@ -239,6 +247,7 @@ onMounted(async () => {
         ]"
         :key="link.to"
         :to="link.to"
+        @click="handleNavigation(link.to)"
         :class="[
           isActive(link.to)
             ? (dark ? 'text-white bg-white/10' : 'text-rose-600 bg-rose-100')
