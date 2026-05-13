@@ -10,7 +10,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # nullable for OAuth-only accounts
+    google_id = Column(String, unique=True, index=True, nullable=True)
     display_name = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
     avatar_url = Column(String, nullable=True, default="/def_user.png")
@@ -37,6 +38,20 @@ class User(Base):
         "Follow",
         foreign_keys="Follow.followed_id",
         back_populates="followed",
+        cascade="all, delete-orphan"
+    )
+
+    # Block relationships
+    blocking = relationship(
+        "Block",
+        foreign_keys="Block.blocker_id",
+        back_populates="blocker",
+        cascade="all, delete-orphan"
+    )
+    blocked_by = relationship(
+        "Block",
+        foreign_keys="Block.blocked_id",
+        back_populates="blocked",
         cascade="all, delete-orphan"
     )
 
@@ -96,6 +111,19 @@ class Follow(Base):
     # Relationships
     follower = relationship("User", foreign_keys=[follower_id], back_populates="following")
     followed = relationship("User", foreign_keys=[followed_id], back_populates="followers")
+
+
+class Block(Base):
+    __tablename__ = "blocks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    blocker_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    blocked_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    blocker = relationship("User", foreign_keys=[blocker_id], back_populates="blocking")
+    blocked = relationship("User", foreign_keys=[blocked_id], back_populates="blocked_by")
 
 class Conversation(Base):
 	__tablename__ = "conversations"

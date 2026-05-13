@@ -64,7 +64,16 @@ async def update_current_user(
 ):
     """Update the current user's profile"""
     update_data = user_update.model_dump(exclude_unset=True)
-    
+
+    # Check if username is being changed and if it's already taken
+    if "username" in update_data:
+        existing_user = db.query(User).filter(User.username == update_data["username"]).first()
+        if existing_user and existing_user.id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+
     # Check if email is being changed and if it's already taken
     if "email" in update_data:
         existing_user = db.query(User).filter(User.email == update_data["email"]).first()
@@ -87,8 +96,8 @@ async def delete_current_user(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Delete the current user's account (soft delete)"""
-    current_user.is_active = False
+    """Permanently delete the current user's account"""
+    db.delete(current_user)
     db.commit()
     return None
 

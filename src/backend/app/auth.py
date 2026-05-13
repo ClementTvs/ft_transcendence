@@ -89,6 +89,9 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     user = db.query(User).filter(User.username == username).first()
     if not user:
         return None
+    if not user.hashed_password:
+        # OAuth-only account — cannot log in with a password
+        return None
     if not verify_password(password, user.hashed_password):
         return None
     return user

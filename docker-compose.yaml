@@ -27,6 +27,9 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - FRONTEND_URL=${FRONTEND_URL}
+      # Google OAuth (optional — set to enable Google login)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       # SMTP settings (optional — reset links are logged to console if unset)
       # - SMTP_HOST=smtp.example.com
       # - SMTP_PORT=587
