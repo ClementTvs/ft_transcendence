@@ -6,7 +6,7 @@ import os
 import shutil
 
 from app.database import get_db
-from app.models import User, Post, Follow
+from app.models import User, Post, Follow, Block
 from app.schemas import UserResponse, UserUpdate, UserWithStats, PasswordChange
 from app.auth import get_current_active_user, get_password_hash, verify_password
 
@@ -97,6 +97,19 @@ async def delete_current_user(
     db: Session = Depends(get_db)
 ):
     """Permanently delete the current user's account"""
+    from app.models import Notification, Message, Conversation
+
+    # Remove notifications where this user is the actor (in other users' feeds)
+    db.query(Notification).filter(Notification.actor_id == current_user.id).delete(synchronize_session=False)
+
+    # Remove messages sent by this user
+    db.query(Message).filter(Message.sender_id == current_user.id).delete(synchronize_session=False)
+
+    # Remove conversations this user is part of (cascades to remaining messages)
+    db.query(Conversation).filter(
+        (Conversation.user1_id == current_user.id) | (Conversation.user2_id == current_user.id)
+    ).delete(synchronize_session=False)
+
     db.delete(current_user)
     db.commit()
     return None

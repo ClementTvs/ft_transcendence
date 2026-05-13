@@ -173,7 +173,7 @@ function connectNotifWS() {
       notifications.value.unshift({
         id: Date.now(),
         type: data.type,
-        actor: { username: data.actor_username },
+        actor: { id: data.actor_id, username: data.actor_username },
         created_at: new Date().toISOString(),
         is_read: false,
         post_id: data.post_id ?? null,
