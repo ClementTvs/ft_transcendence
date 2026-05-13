@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import timedelta
 import uuid
 import os
 import shutil
@@ -8,7 +9,13 @@ import shutil
 from app.database import get_db
 from app.models import User, Post, Follow, Block
 from app.schemas import UserResponse, UserUpdate, UserWithStats, PasswordChange
-from app.auth import get_current_active_user, get_password_hash, verify_password
+from app.auth import (
+    get_current_active_user,
+    get_password_hash, verify_password,
+    create_access_token, create_refresh_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -45,13 +52,13 @@ async def get_users(
 ):
     """Get a list of users (with optional search)"""
     query = db.query(User)
-    
+
     if search:
         query = query.filter(
             (User.username.ilike(f"%{search}%")) |
             (User.display_name.ilike(f"%{search}%"))
         )
-    
+
     users = query.offset(skip).limit(limit).all()
     return users
 
@@ -59,35 +66,49 @@ async def get_users(
 @router.put("/me", response_model=UserResponse)
 async def update_current_user(
     user_update: UserUpdate,
+    response: Response,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """Update the current user's profile"""
+    """Update the current user's profile. If the username changes, return new tokens in headers."""
     update_data = user_update.model_dump(exclude_unset=True)
+    username_changed = False
 
     # Check if username is being changed and if it's already taken
-    if "username" in update_data:
+    if "username" in update_data and update_data["username"] != current_user.username:
         existing_user = db.query(User).filter(User.username == update_data["username"]).first()
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already taken"
             )
+        username_changed = True
 
     # Check if email is being changed and if it's already taken
-    if "email" in update_data:
+    if "email" in update_data and update_data["email"] != current_user.email:
         existing_user = db.query(User).filter(User.email == update_data["email"]).first()
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
-    
+
     for field, value in update_data.items():
         setattr(current_user, field, value)
-    
+
     db.commit()
     db.refresh(current_user)
+
+    # If username changed, regenerate tokens so the JWT remains valid
+    if username_changed:
+        new_access = create_access_token(
+            data={"sub": current_user.username},
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        new_refresh = create_refresh_token(data={"sub": current_user.username})
+        response.headers["X-New-Access-Token"] = new_access
+        response.headers["X-New-Refresh-Token"] = new_refresh
+
     return current_user
 
 
@@ -124,16 +145,16 @@ async def get_user_stats(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Count posts
     post_count = db.query(Post).filter(Post.author_id == user_id).count()
-    
+
     # Count followers
     follower_count = db.query(Follow).filter(Follow.followed_id == user_id).count()
-    
+
     # Count following
     following_count = db.query(Follow).filter(Follow.follower_id == user_id).count()
-    
+
     return {
         "id": user.id,
         "username": user.username,

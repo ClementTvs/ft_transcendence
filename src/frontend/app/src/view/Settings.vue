@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { uploadAvatar, uploadBanner, changePassword, deleteAccount, updateProfile } from '../api'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
@@ -17,6 +17,7 @@ const pass2 = ref(null)
 const currentPass = ref(null)
 const showPass = reactive({ current: false, pass1: false, pass2: false })
 const passErrors = reactive({ current: '', pass1: '', pass2: '' })
+const profileErrors = reactive({ username: '', display_name: '', email: '', bio: '', avatar: '', banner: '', general: '' })
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const language = ref('fr')
@@ -44,9 +45,45 @@ const themeClasses = computed(() => {
 
 const isDark = computed(() => themeStore.dark)
 
+function resetProfileErrors() {
+  profileErrors.username = ''
+  profileErrors.display_name = ''
+  profileErrors.email = ''
+  profileErrors.bio = ''
+  profileErrors.avatar = ''
+  profileErrors.banner = ''
+  profileErrors.general = ''
+}
+
+function resetPassErrors() {
+  passErrors.current = ''
+  passErrors.pass1 = ''
+  passErrors.pass2 = ''
+}
+
+// Reset auto des erreurs quand l'user modifie un champ
+watch(() => form?.username, () => { profileErrors.username = '' })
+watch(() => form?.display_name, () => { profileErrors.display_name = '' })
+watch(() => form?.email, () => { profileErrors.email = '' })
+watch(() => form?.bio, () => { profileErrors.bio = '' })
+watch(currentPass, () => { passErrors.current = '' })
+watch(pass1, () => { passErrors.pass1 = '' })
+watch(pass2, () => { passErrors.pass2 = '' })
+
 async function onBannerChange(e) {
   const file = e.target.files[0]
   if (!file) return
+  profileErrors.banner = ''
+  
+  if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+    profileErrors.banner = 'Format non supporté (jpeg, png, gif, webp uniquement)'
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    profileErrors.banner = 'Image trop volumineuse (max 5 MB)'
+    return
+  }
+  
   form.banner_file = file
   form.banner_url = URL.createObjectURL(file)
 }
@@ -54,6 +91,17 @@ async function onBannerChange(e) {
 async function onAvatarChange(e) {
   const file = e.target.files[0]
   if (!file) return
+  profileErrors.avatar = ''
+  
+  if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+    profileErrors.avatar = 'Format non supporté (jpeg, png, gif, webp uniquement)'
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    profileErrors.avatar = 'Image trop volumineuse (max 5 MB)'
+    return
+  }
+  
   form.avatar_file = file
   form.avatar_url = URL.createObjectURL(file)
 }
@@ -62,6 +110,7 @@ function avatarUrl() {
   if (!form?.avatar_url) return '/def_user.png'
   if (form.avatar_url === '/def_user.png') return '/def_user.png'
   if (form.avatar_url.startsWith('http')) return form.avatar_url
+  if (form.avatar_url.startsWith('blob:')) return form.avatar_url
   if (form.avatar_url.startsWith('/')) return `${API}${form.avatar_url}`
   return form.avatar_url
 }
@@ -69,6 +118,7 @@ function avatarUrl() {
 function bannerUrl() {
   if (!form.banner_url) return null
   if (form.banner_url.startsWith('http')) return form.banner_url
+  if (form.banner_url.startsWith('blob:')) return form.banner_url
   if (form.banner_url.startsWith('/')) return `${API}${form.banner_url}`
   return form.banner_url
 }
@@ -76,7 +126,6 @@ function bannerUrl() {
 async function handleSave() {
   try {
     const changed = await save()
-    console.log(saved.value)
     if (changed) {
       saved.value = true
       setTimeout(() => { saved.value = false }, 2500)
@@ -88,8 +137,9 @@ async function handleSave() {
 
 async function save() {
   let changed = false
+  resetProfileErrors()
+  resetPassErrors()
 
-  // Save profile fields (username, display_name, email, bio)
   const profilePayload = {}
   if (form.username !== userStore.user.username) profilePayload.username = form.username
   if (form.display_name !== userStore.user.display_name) profilePayload.display_name = form.display_name
@@ -103,6 +153,16 @@ async function save() {
       changed = true
     } catch (err) {
       console.error('Error updating profile:', err)
+      const msg = (err.message || '').toLowerCase()
+      
+      if (msg.includes('email')) {
+        profileErrors.email = 'Cet email est déjà utilisé'
+      } else if (msg.includes('username')) {
+        profileErrors.username = 'Ce pseudo est déjà pris'
+      } else {
+        profileErrors.general = 'Erreur lors de la mise à jour du profil'
+      }
+      return false
     }
   }
 
@@ -115,6 +175,13 @@ async function save() {
       changed = true
     } catch (err) {
       console.error('Error upload avatar:', err)
+      const msg = (err.message || '').toLowerCase()
+      if (msg.includes('image') || msg.includes('fichier')) {
+        profileErrors.avatar = 'Format ou taille invalide'
+      } else {
+        profileErrors.avatar = 'Erreur lors de l\'envoi de l\'avatar'
+      }
+      return false
     }
   }
 
@@ -127,23 +194,26 @@ async function save() {
       changed = true
     } catch (err) {
       console.error('Error upload banner:', err)
+      const msg = (err.message || '').toLowerCase()
+      if (msg.includes('image') || msg.includes('fichier')) {
+        profileErrors.banner = 'Format ou taille invalide'
+      } else {
+        profileErrors.banner = 'Erreur lors de l\'envoi de la bannière'
+      }
+      return false
     }
   }
 
   if (pass1.value || pass2.value || currentPass.value) {
-    passErrors.current = ''
-    passErrors.pass1 = ''
-    passErrors.pass2 = ''
-
     if (!currentPass.value) {
       passErrors.current = 'Veuillez entrer votre mot de passe actuel'
       return false
     }
-    if (pass1.value?.length < 6) {
+    if (!pass1.value || pass1.value.length < 6) {
       passErrors.pass1 = 'Le mot de passe doit contenir au moins 6 caractères'
       return false
     }
-    if (pass1.value?.length > 72) {
+    if (pass1.value.length > 72) {
       passErrors.pass1 = 'Le mot de passe doit contenir au maximum 72 caractères'
       return false
     }
@@ -159,8 +229,8 @@ async function save() {
       pass2.value = ''
       changed = true
     } catch (err) {
-      passErrors.current = 'Mot de passe actuel incorrect'
       console.error('Error changing password:', err)
+      passErrors.current = 'Mot de passe actuel incorrect'
       return false
     }
   }
@@ -234,16 +304,16 @@ const themes = [
   { id: 'rose',  label: 'Rose',  desc: 'Accent rosé', preview: 'bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200' },
   { id: 'dark',  label: 'Sombre', desc: 'Mode nuit', preview: 'bg-gradient-to-br from-gray-700 to-gray-900' },
 ]
+
+const errorIcon = `<svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>`
 </script>
 
 <template>
   <div :class="['min-h-screen font-[\'Instrument_Sans\',sans-serif] transition-colors duration-300', themeClasses.bg]">
 
-    <!-- Sidebar -->
     <aside :class="['fixed top-0 left-0 h-screen w-64 border-r flex flex-col z-10 transition-colors duration-300', themeClasses.sidebar]">
 
-      <!-- Logo -->
-      <div :class="['px-6 py-4 h-[90px] border-b', isDark ? 'border-gray-700' : 'border-rose-200']"> <!--bar haut param -->
+      <div :class="['px-6 py-4 h-[90px] border-b', isDark ? 'border-gray-700' : 'border-rose-200']">
         <div class="flex items-center gap-3">
           <div :class="['w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm', isDark ? 'bg-gradient-to-br from-gray-600 to-gray-900 shadow-gray-500' : 'bg-gradient-to-br from-rose-400 to-rose-600 shadow-rose-200']">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -253,7 +323,6 @@ const themes = [
           </div>
           <span :class="['font-semibold tracking-tight', isDark ? 'text-gray-100' : 'text-gray-800']">Paramètres</span>
         </div>
-          <!-- Bouton return profil -->
         <button
           @click="$router.push('/profile')"
           :class="['mt-3 flex items-center gap-2 text-xs font-medium transition-colors', isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-rose-500']">
@@ -264,7 +333,6 @@ const themes = [
         </button>
       </div>
 
-      <!-- Nav -->
       <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         <p :class="['px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest', isDark ? 'text-gray-500' : 'text-gray-400']">Compte</p>
         <button
@@ -272,22 +340,15 @@ const themes = [
           @click="activeSection = item.id"
           :class="[
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150',
-              activeSection === item.id
-              ? (isDark 
-                  ? 'bg-gray-700 text-gray-300 font-medium'
-                  : 'bg-rose-100 text-rose-600 font-medium'
-                )
-              : (isDark 
-                  ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
-                  : 'text-gray-500 hover:bg-rose-100 hover:text-gray-700'
-                )
+            activeSection === item.id
+              ? (isDark ? 'bg-gray-700 text-gray-300 font-medium' : 'bg-rose-100 text-rose-600 font-medium')
+              : (isDark ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200' : 'text-gray-500 hover:bg-rose-100 hover:text-gray-700')
           ]">
           <span
-            :class="activeSection === item.id
-              ? (isDark ? 'text-gray-300' : 'text-rose-500')
-              : (isDark ? 'text-gray-400' : 'text-gray-400')"
+            :class="activeSection === item.id ? (isDark ? 'text-gray-300' : 'text-rose-500') : (isDark ? 'text-gray-400' : 'text-gray-400')"
             v-html="item.icon">
-          </span>          {{ item.label }}
+          </span>
+          {{ item.label }}
         </button>
 
         <p :class="['px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest', isDark ? 'text-gray-500' : 'text-gray-400']">Préférences</p>
@@ -297,26 +358,17 @@ const themes = [
           :class="[
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150',
             activeSection === item.id
-              ? (isDark
-                  ? 'bg-gray-700 text-gray-300 font-medium'
-                  : 'bg-rose-100 text-rose-600 font-medium'
-                )
-              : (isDark 
-                  ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
-                  : 'text-gray-500 hover:bg-rose-100 hover:text-gray-700'
-                )
+              ? (isDark ? 'bg-gray-700 text-gray-300 font-medium' : 'bg-rose-100 text-rose-600 font-medium')
+              : (isDark ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200' : 'text-gray-500 hover:bg-rose-100 hover:text-gray-700')
           ]">
           <span
-            :class="activeSection === item.id
-              ? (isDark ? 'text-gray-300' : 'text-rose-500')
-              : (isDark ? 'text-gray-400' : 'text-gray-400')"
+            :class="activeSection === item.id ? (isDark ? 'text-gray-300' : 'text-rose-500') : (isDark ? 'text-gray-400' : 'text-gray-400')"
             v-html="item.icon">
           </span>
           {{ item.label }}
         </button>
       </nav>
 
-      <!-- User -->
       <div :class="['px-4 py-4 border-t', isDark ? 'border-gray-700' : 'border-rose-200']">
         <div class="flex items-center gap-3">
           <img v-if="form.avatar_url" :src="avatarUrl()" class="w-9 h-9 rounded-full"/>
@@ -333,11 +385,9 @@ const themes = [
       </div>
     </aside>
 
-    <!-- Main content -->
     <main class="ml-64 min-h-screen">
 
-      <!-- Header -->
-      <div :class="['sticky top-0 backdrop-blur-sm border-b px-8 py-2 h-[90px] z-10 transition-colors duration-300', isDark ? 'border-gray-700' : 'border-rose-200']"> <!-- bar haut droite-->
+      <div :class="['sticky top-0 backdrop-blur-sm border-b px-8 py-2 h-[90px] z-10 transition-colors duration-300', isDark ? 'border-gray-700' : 'border-rose-200']">
         <div class="flex items-center justify-between h-full">
           <div>
             <h1 :class="['text-lg font-semibold', isDark ? 'text-gray-100' : 'text-gray-900']">{{ currentSection.title }}</h1>
@@ -348,14 +398,8 @@ const themes = [
             :class="[
               'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
               saved
-                ? (isDark
-                    ? 'bg-green-900/30 text-green-400 border border-green-700'
-                    : 'bg-green-50 text-green-600 border border-green-200'
-                  )
-                : (isDark
-                    ? 'bg-gray-500 hover:bg-gray-600 text-white shadow-sm shadow-black/30'
-                    : 'bg-rose-400 hover:bg-rose-500 text-white shadow-sm shadow-rose-200 hover:shadow-rose-300'
-                  )
+                ? (isDark ? 'bg-green-900/30 text-green-400 border border-green-700' : 'bg-green-50 text-green-600 border border-green-200')
+                : (isDark ? 'bg-gray-500 hover:bg-gray-600 text-white shadow-sm shadow-black/30' : 'bg-rose-400 hover:bg-rose-500 text-white shadow-sm shadow-rose-200 hover:shadow-rose-300')
             ]">
             <svg v-if="saved" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
@@ -368,14 +412,11 @@ const themes = [
         </div>
       </div>
 
-      <!-- Content -->
       <div class="px-8 py-8 max-w-2xl">
 
-        <!-- PROFILE SECTION -->
         <template v-if="activeSection === 'profile'">
           <div :class="['rounded-2xl border mb-5 shadow-sm overflow-hidden transition-colors duration-300', themeClasses.card]">
 
-            <!-- Banner -->
             <div
               class="relative w-full h-36 cursor-pointer overflow-hidden group"
               :class="form.banner_url ? '' : 'bg-gradient-to-br from-gray-800 via-gray-900 to-rose-950'"
@@ -391,8 +432,13 @@ const themes = [
               <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"/>
               <input ref="bannerInput" type="file" accept="image/*" class="hidden" @change="onBannerChange"/>
             </div>
+            
+            <!-- Erreur bannière -->
+            <p v-if="profileErrors.banner" class="px-6 pt-2 text-xs text-red-400 flex items-center gap-1">
+              <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+              {{ profileErrors.banner }}
+            </p>
 
-            <!-- Avatar -->
             <div class="px-6">
               <div
                 class="relative w-20 h-20 -mt-10 rounded-full border-4 bg-gray-800 cursor-pointer overflow-hidden group/avatar shadow-sm z-10"
@@ -412,61 +458,72 @@ const themes = [
                 </div>
                 <input ref="avatarInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange"/>
               </div>
+              <p v-if="profileErrors.avatar" class="mt-2 text-xs text-red-400 flex items-center gap-1">
+                <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                {{ profileErrors.avatar }}
+              </p>
             </div>
 
-            <!-- Form fields -->
             <div class="px-6 pt-3 pb-6 space-y-5">
               <h2 :class="['text-sm font-semibold', isDark ? 'text-gray-200' : 'text-gray-700']">Informations personnelles</h2>
+
+              <div v-if="profileErrors.general"
+                :class="['p-3 rounded-xl flex items-center gap-2 text-sm', isDark ? 'bg-red-900/30 text-red-400 border border-red-800' : 'bg-red-50 text-red-600 border border-red-200']">
+                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>
+                </svg>
+                {{ profileErrors.general }}
+              </div>
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Pseudo</label>
                   <div class="relative">
                     <input v-model="form.username" :disabled="!editing.username" type="text"
-                      :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                        editing.username ?
-                          (isDark
-                              ? 'border-gray-400 bg-gray-600 text-gray-200'
-                              : 'border-rose-300 bg-white text-gray-800'
-                            )
-                          : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                            )
+                      :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none',
+                        isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                        profileErrors.username ? 'border-red-400' :
+                        editing.username
+                          ? (isDark ? 'border-gray-400 bg-gray-600 text-gray-200' : 'border-rose-300 bg-white text-gray-800')
+                          : (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
                       ]"
                       placeholder="Claire"/>
                     <button @click="editing.username = !editing.username"
-                      :class="['absolute right-3 top-1/2 -translate-y-1/2 transition-colors', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                      :class="['absolute right-3 top-1/2 -translate-y-1/2 transition-colors', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/>
                       </svg>
                     </button>
                   </div>
+                  <p v-if="profileErrors.username" class="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                    {{ profileErrors.username }}
+                  </p>
                 </div>
 
                 <div>
                   <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Nom d'utilisateur</label>
                   <div class="relative">
                     <input v-model="form.display_name" :disabled="!editing.display_name" type="text"
-                      :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                        editing.display_name ?                           
-                          (isDark
-                                ? 'border-gray-400 bg-gray-600 text-gray-200'
-                                : 'border-rose-300 bg-white text-gray-800'
-                              )
-                            : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                              )
+                      :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none',
+                        isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                        profileErrors.display_name ? 'border-red-400' :
+                        editing.display_name
+                          ? (isDark ? 'border-gray-400 bg-gray-600 text-gray-200' : 'border-rose-300 bg-white text-gray-800')
+                          : (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
                       ]"
                       placeholder="Martin"/>
                     <button @click="editing.display_name = !editing.display_name"
-                      :class="['absolute right-3 top-1/2 -translate-y-1/2 ', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                      :class="['absolute right-3 top-1/2 -translate-y-1/2', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/>
                       </svg>
                     </button>
                   </div>
+                  <p v-if="profileErrors.display_name" class="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                    {{ profileErrors.display_name }}
+                  </p>
                 </div>
               </div>
 
@@ -474,82 +531,77 @@ const themes = [
                 <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Email</label>
                 <div class="relative">
                   <input v-model="form.email" :disabled="!editing.email" type="email"
-                    :class="['w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl border text-sm focus:outline-none', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                      editing.email ?                           
-                        (isDark
-                                ? 'border-gray-400 bg-gray-600 text-gray-200'
-                                : 'border-rose-300 bg-white text-gray-800'
-                              )
-                            : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                              )
-                      ]"/>
+                    :class="['w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl border text-sm focus:outline-none',
+                      isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                      profileErrors.email ? 'border-red-400' :
+                      editing.email
+                        ? (isDark ? 'border-gray-400 bg-gray-600 text-gray-200' : 'border-rose-300 bg-white text-gray-800')
+                        : (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
+                    ]"/>
                   <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/>
                   </svg>
                   <button @click="editing.email = !editing.email"
-                      :class="['absolute right-3 top-1/2 -translate-y-1/2 ', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                    :class="['absolute right-3 top-1/2 -translate-y-1/2', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/>
                     </svg>
                   </button>
                 </div>
+                <p v-if="profileErrors.email" class="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                  <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                  {{ profileErrors.email }}
+                </p>
               </div>
 
               <div>
                 <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Bio</label>
                 <div class="relative">
                   <textarea v-model="form.bio" :disabled="!editing.bio" rows="3"
-                    :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                      editing.bio ?                         
-                        (isDark
-                                ? 'border-gray-400 bg-gray-600 text-gray-200'
-                                : 'border-rose-300 bg-white text-gray-800'
-                              )
-                            : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                              )
-                      ]"
+                    :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none',
+                      isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                      profileErrors.bio ? 'border-red-400' :
+                      editing.bio
+                        ? (isDark ? 'border-gray-400 bg-gray-600 text-gray-200' : 'border-rose-300 bg-white text-gray-800')
+                        : (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
+                    ]"
                     placeholder="Décrivez-vous en quelques mots..."></textarea>
                   <button @click="editing.bio = !editing.bio"
-                    :class="['absolute right-3 top-3', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                    :class="['absolute right-3 top-3', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"/>
                     </svg>
                   </button>
                 </div>
-                <p class="text-right text-xs text-gray-300 mt-1">{{ form.bio?.length ?? 0 }}/160</p>
+                <div class="flex justify-between mt-1">
+                  <p v-if="profileErrors.bio" class="text-xs text-red-400 flex items-center gap-1">
+                    <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                    {{ profileErrors.bio }}
+                  </p>
+                  <p v-else></p>
+                  <p class="text-xs text-gray-300">{{ form.bio?.length ?? 0 }}/160</p>
+                </div>
               </div>
             </div>
           </div>
         </template>
 
-        <!-- SECURITY SECTION -->
         <template v-if="activeSection === 'security'">
           <div :class="['rounded-2xl border p-6 mb-5 shadow-sm space-y-5 transition-colors duration-300', themeClasses.card]">
             <h2 :class="['text-sm font-semibold', isDark ? 'text-gray-200' : 'text-gray-700']">Changer le mot de passe</h2>
 
-            <!-- Mot de passe actuel -->
             <div>
               <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Mot de passe actuel</label>
               <div class="relative">
                 <input v-model="currentPass" :type="showPass.current ? 'text' : 'password'"
-                  :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                    passErrors.current ? 
-                      (isDark
-                                ? 'border-gray-400 bg-gray-600 text-gray-200'
-                                : 'border-rose-300 bg-white text-gray-800'
-                              )
-                            : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                              )
-                      ]"
+                  :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all',
+                    isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                    passErrors.current ? 'border-red-400' :
+                    (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
+                  ]"
                   placeholder="••••••••"/>
                 <button type="button" @click="showPass.current = !showPass.current"
-                  :class="['absolute right-3 top-1/2 -translate-y-1/2 ', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                  :class="['absolute right-3 top-1/2 -translate-y-1/2', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                   <svg v-if="showPass.current" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/>
                   </svg>
@@ -560,30 +612,23 @@ const themes = [
                 </button>
               </div>
               <p v-if="passErrors.current" class="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
                 {{ passErrors.current }}
               </p>
             </div>
 
-            <!-- Nouveau mot de passe -->
             <div>
               <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Nouveau mot de passe</label>
               <div class="relative">
                 <input v-model="pass1" :type="showPass.pass1 ? 'text' : 'password'"
-                  :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                    passErrors.pass1 ?                       
-                      (isDark
-                                ? 'border-gray-400 bg-gray-600 text-gray-200'
-                                : 'border-rose-300 bg-white text-gray-800'
-                              )
-                            : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                              )
-                      ]"
+                  :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all',
+                    isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                    passErrors.pass1 ? 'border-red-400' :
+                    (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
+                  ]"
                   placeholder="••••••••"/>
                 <button type="button" @click="showPass.pass1 = !showPass.pass1"
-                  :class="['absolute right-3 top-1/2 -translate-y-1/2 ', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                  :class="['absolute right-3 top-1/2 -translate-y-1/2', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                   <svg v-if="showPass.pass1" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/>
                   </svg>
@@ -594,30 +639,23 @@ const themes = [
                 </button>
               </div>
               <p v-if="passErrors.pass1" class="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
                 {{ passErrors.pass1 }}
               </p>
             </div>
 
-            <!-- Confirmer -->
             <div>
               <label :class="['block text-xs font-medium mb-1.5', themeClasses.label]">Confirmer</label>
               <div class="relative">
                 <input v-model="pass2" :type="showPass.pass2 ? 'text' : 'password'"
-                  :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
-                    passErrors.pass2 ?                       
-                      (isDark
-                                ? 'border-gray-400 bg-gray-600 text-gray-200'
-                                : 'border-rose-300 bg-white text-gray-800'
-                              )
-                            : (isDark
-                              ? 'border-gray-600 bg-gray-700 text-gray-200'
-                              : 'border-gray-200 bg-gray-50 text-gray-800'
-                              )
-                      ]"
+                  :class="['w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all',
+                    isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400 transition-all placeholder-gray-500' : 'focus:border-rose-500 focus:ring-2 focus:ring-rose-300 transition-all placeholder-gray-300',
+                    passErrors.pass2 ? 'border-red-400' :
+                    (isDark ? 'border-gray-600 bg-gray-700 text-gray-200' : 'border-gray-200 bg-gray-50 text-gray-800')
+                  ]"
                   placeholder="••••••••"/>
                 <button type="button" @click="showPass.pass2 = !showPass.pass2"
-                  :class="['absolute right-3 top-1/2 -translate-y-1/2 ', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400 ']">
+                  :class="['absolute right-3 top-1/2 -translate-y-1/2', isDark ? 'text-gray-400 hover:text-gray-500' : 'text-gray-300 hover:text-rose-400']">
                   <svg v-if="showPass.pass2" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/>
                   </svg>
@@ -628,50 +666,37 @@ const themes = [
                 </button>
               </div>
               <p v-if="passErrors.pass2" class="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
                 {{ passErrors.pass2 }}
               </p>
             </div>
           </div>
-        </template> 
+        </template>
 
-        <!-- APPEARANCE SECTION -->
         <template v-if="activeSection === 'appearance'">
           <div :class="['rounded-2xl border p-6 mb-5 shadow-sm transition-colors duration-300', themeClasses.card]">
             <h2 :class="['text-sm font-semibold mb-5', isDark ? 'text-gray-200' : 'text-gray-700']">Thème</h2>
             <div class="grid grid-cols-3 gap-3">
-            <button
-              v-for="theme in themes"
-              :key="theme.id"
-              @click="theme.id === 'dark' ? themeStore.dark = true : themeStore.dark = false"
-              :class="[
-                'p-3 rounded-xl border-2 transition-all text-left',
-                (theme.id === 'dark' && themeStore.dark) || (theme.id === 'light' && !themeStore.dark)
-                  ? (isDark
-                      ? 'border-gray-500 bg-gray-500'
-                      : 'border-rose-400 bg-gray-50')
-                  : (isDark
-                      ? 'border-gray-600 hover:border-gray-500'
-                      : 'border-gray-100 hover:border-gray-50 bg-gray-50')
-              ]"
-            >
-              <div :class="['w-full h-12 rounded-lg mb-2', theme.preview]"></div>
-
-              <p :class="['text-xs font-medium', isDark ? 'text-gray-200' : 'text-gray-700']">
-                {{ theme.label }}
-              </p>
-
-              <p class="text-[10px] text-gray-400">
-                {{ theme.desc }}
-              </p>
-            </button>
+              <button
+                v-for="theme in themes"
+                :key="theme.id"
+                @click="theme.id === 'dark' ? themeStore.dark = true : themeStore.dark = false"
+                :class="[
+                  'p-3 rounded-xl border-2 transition-all text-left',
+                  (theme.id === 'dark' && themeStore.dark) || (theme.id === 'light' && !themeStore.dark)
+                    ? (isDark ? 'border-gray-500 bg-gray-500' : 'border-rose-400 bg-gray-50')
+                    : (isDark ? 'border-gray-600 hover:border-gray-500' : 'border-gray-100 hover:border-gray-50 bg-gray-50')
+                ]">
+                <div :class="['w-full h-12 rounded-lg mb-2', theme.preview]"></div>
+                <p :class="['text-xs font-medium', isDark ? 'text-gray-200' : 'text-gray-700']">{{ theme.label }}</p>
+                <p class="text-[10px] text-gray-400">{{ theme.desc }}</p>
+              </button>
             </div>
           </div>
-        </template> 
+        </template>
 
-        <!-- DANGER ZONE -->
         <template v-if="activeSection === 'danger'">
-          <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', isDark ? 'border-gray-500': 'border-red-100','', themeClasses.card]">
+          <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', isDark ? 'border-gray-500': 'border-red-100', themeClasses.card]">
             <div class="flex items-start gap-3 mb-4">
               <div class="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
                 <svg :class="['w-4 h-4', isDark ? 'text-red-600' : 'text-red-400']" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -683,27 +708,20 @@ const themes = [
                 <p class="text-xs text-gray-400 mt-0.5">Cette action est permanente et irréversible.</p>
               </div>
             </div>
-            <button  @click="showConfirmDelete = true" class="text-sm px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors shadow-sm">
+            <button @click="showConfirmDelete = true" class="text-sm px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors shadow-sm">
               Supprimer mon compte
             </button>
             <div v-if="showConfirmDelete" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
               <div :class="['rounded-2xl p-6 w-[400px] shadow-xl', isDark ? 'bg-gray-800' : 'bg-white']">
-                <h2 :class="['text-lg font-semibold', isDark ? 'text-gray-300' : 'text-gray-800']">
-                  Êtes-vous sûr ?
-                </h2>
-                <p :class="['text-sm mt-2', isDark ? 'text-gray-200' : 'text-gray-500' ]">
+                <h2 :class="['text-lg font-semibold', isDark ? 'text-gray-300' : 'text-gray-800']">Êtes-vous sûr ?</h2>
+                <p :class="['text-sm mt-2', isDark ? 'text-gray-200' : 'text-gray-500']">
                   Cette action est irréversible. Votre compte sera désactivé.
                 </p>
                 <div class="flex justify-end gap-3 mt-6">
-                  <button
-                    @click="showConfirmDelete = false"
-                    class="px-4 py-2 text-sm rounded-xl bg-gray-100 hover:bg-gray-200">
+                  <button @click="showConfirmDelete = false" class="px-4 py-2 text-sm rounded-xl bg-gray-100 hover:bg-gray-200">
                     Annuler
                   </button>
-                  <button
-                    @click="onDeleteAccount"
-                    :disabled="deleting"
-                    class="px-4 py-2 text-sm rounded-xl bg-red-500 hover:bg-red-600 text-white">
+                  <button @click="onDeleteAccount" :disabled="deleting" class="px-4 py-2 text-sm rounded-xl bg-red-500 hover:bg-red-600 text-white">
                     {{ deleting ? 'Suppression...' : 'Oui, supprimer' }}
                   </button>
                 </div>
