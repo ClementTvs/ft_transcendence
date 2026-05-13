@@ -622,7 +622,7 @@ const themes = [
           </div>
 
           <!-- 2FA -->
-          <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', themeClasses.card]">
+          <!--  <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', themeClasses.card]">
             <div class="flex items-center justify-between mb-4">
               <div>
                 <h2 :class="['text-sm font-semibold', isDark ? 'text-gray-200' : 'text-gray-700']">Double authentification</h2>
@@ -636,8 +636,8 @@ const themes = [
               <p :class="['text-xs', isDark ? 'text-gray-700 font-medium mb-1' : 'text-rose-600 font-medium mb-1']">✓ Double authentification activée</p>
               <p :class="['text-xs',  isDark ? 'text-gray-500' : 'text-rose-400']">Votre compte est sécurisé via une application TOTP.</p>
             </div>
-          </div>
-        </template>
+          </div> -->
+        </template> 
 
         <!-- APPEARANCE SECTION -->
         <template v-if="activeSection === 'appearance'">
@@ -672,7 +672,7 @@ const themes = [
             </div>
           </div>
 
-          <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', themeClasses.card]">
+          <!-- <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', themeClasses.card]">
             <h2 :class="['text-sm font-semibold mb-4', isDark ? 'text-gray-200' : 'text-gray-700']">Langue</h2>
             <select v-model='language' :class="['w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400' : 'focus:border-rose-300 focus:ring-2 focus:ring-rose-100',
               isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700']">
@@ -680,8 +680,8 @@ const themes = [
               <option value="en">🇬🇧 English</option>
               <option value="es">🇪🇸 Español</option>
             </select>
-          </div>
-        </template>
+          </div> -->
+        </template> 
 
         <!-- DANGER ZONE -->
         <template v-if="activeSection === 'danger'">

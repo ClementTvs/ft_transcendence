@@ -106,8 +106,8 @@ function reset() {
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-rose-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p class="text-sm text-rose-700">
-            Un e-mail de réinitialisation a été envoyé à <strong>{{ email }}</strong>. Vérifiez votre boîte de réception.
+          <p :class="['text-sm', themeStore.dark ? 'text-rose-300' : 'text-rose-700']">
+            Si votre adresse e-mail est lié a un compte Transcendence, un e-mail de réinitialisation a été envoyé à <strong>{{ email }}</strong>. Vérifiez votre boîte de réception.
           </p>
         </div>
       </Transition>
