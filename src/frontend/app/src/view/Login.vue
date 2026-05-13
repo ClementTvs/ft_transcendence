@@ -11,6 +11,11 @@ const router = useRouter();
 const showPassword = ref(false);
 
 async function handleLogin() {
+  if (!username.value || !password.value)
+  {
+    error.value = "Veuillez remplir tout les champs"
+    return 
+  }
   try {
     await login(username.value, password.value);
     router.push('/')
