@@ -26,7 +26,8 @@ export async function login(username, password) {
     body: formData
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.detail)
+  if (!res.ok) 
+    throw new Error("Nom d'utilisateur ou mot de passe incorrect")
   localStorage.setItem('token', data.access_token)
   return data
 }

@@ -151,17 +151,13 @@ async function save() {
   return changed
 }
 
-const deleteError = ref('')
-
 async function onDeleteAccount() {
   try {
     deleting.value = true
-    deleteError.value = ''
     await deleteAccount()
     userStore.logout()
   } catch (err) {
     console.error('Delete failed:', err)
-    deleteError.value = 'Une erreur est survenue. Veuillez réessayer.'
   } finally {
     deleting.value = false
   }
@@ -202,7 +198,7 @@ const navItems = {
       icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42"/></svg>`
     },
     {
-      id: 'danger', label: 'Danger',
+      id: 'danger', label: 'Suppression',
       icon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>`
     },
   ]
@@ -212,7 +208,7 @@ const sections = {
   profile: { title: 'Mon profil', description: 'Gérez vos informations personnelles' },
   security: { title: 'Sécurité', description: 'Mot de passe et authentification' },
   appearance: { title: 'Apparence', description: 'Thème, langue et affichage' },
-  danger: { title: 'Zone de danger', description: 'Actions irréversibles' },
+  danger: { title: 'Supprimer le compte', description: 'Actions irréversibles' },
 }
 
 const currentSection = computed(() => sections[activeSection.value])
@@ -620,23 +616,6 @@ const themes = [
               </p>
             </div>
           </div>
-
-          <!-- 2FA -->
-          <!--  <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', themeClasses.card]">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h2 :class="['text-sm font-semibold', isDark ? 'text-gray-200' : 'text-gray-700']">Double authentification</h2>
-                <p class="text-xs text-gray-400 mt-0.5">Protégez votre compte avec un code 2FA</p>
-              </div>
-              <button @click="twofa = !twofa" :class="['relative w-11 h-6 rounded-full transition-colors duration-200', twofa ? (isDark ? 'bg-gray-500' : 'bg-rose-500' ) : 'bg-gray-200']">
-                <span :class="['absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200', twofa ? 'translate-x-5' : '']"></span>
-              </button>
-            </div>
-            <div v-if="twofa" :class="['p-4', isDark ? 'bg-gray-200 rounded-xl border border-gray-500' : 'bg-gray-50 rounded-xl border border-gray-100']">
-              <p :class="['text-xs', isDark ? 'text-gray-700 font-medium mb-1' : 'text-rose-600 font-medium mb-1']">✓ Double authentification activée</p>
-              <p :class="['text-xs',  isDark ? 'text-gray-500' : 'text-rose-400']">Votre compte est sécurisé via une application TOTP.</p>
-            </div>
-          </div> -->
         </template> 
 
         <!-- APPEARANCE SECTION -->
@@ -671,16 +650,6 @@ const themes = [
             </button>
             </div>
           </div>
-
-          <!-- <div :class="['rounded-2xl border p-6 shadow-sm transition-colors duration-300', themeClasses.card]">
-            <h2 :class="['text-sm font-semibold mb-4', isDark ? 'text-gray-200' : 'text-gray-700']">Langue</h2>
-            <select v-model='language' :class="['w-full px-3.5 py-2.5 rounded-xl border text-sm focus:outline-none', isDark ? 'focus:border-gray-500 focus:ring-2 focus:ring-gray-400' : 'focus:border-rose-300 focus:ring-2 focus:ring-rose-100',
-              isDark ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700']">
-              <option value="fr">🇫🇷 Français</option>
-              <option value="en">🇬🇧 English</option>
-              <option value="es">🇪🇸 Español</option>
-            </select>
-          </div> -->
         </template> 
 
         <!-- DANGER ZONE -->
@@ -721,7 +690,6 @@ const themes = [
                     {{ deleting ? 'Suppression...' : 'Oui, supprimer' }}
                   </button>
                 </div>
-                <p v-if="deleteError" class="text-red-500 text-sm mt-3 text-right">{{ deleteError }}</p>
               </div>
             </div>
           </div>
