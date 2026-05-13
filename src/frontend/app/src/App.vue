@@ -22,7 +22,8 @@ const showSearchResults = ref(false)
 const searching = ref(false)
 let searchTimeout = null
 
-const API = 'http://localhost:8000'
+const API = ''
+const WS_NOTIF_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/notifications/ws`
 
 const user = computed(() => userStore.user)
 
@@ -159,12 +160,40 @@ const hideNav = computed(() =>
   ['/login', '/register', '/forgot-password', '/settings'].includes(route.path)
 )
 
+let notifWs = null
+//                                                                                   A verifier                 //
+function connectNotifWS() {
+  const token = localStorage.getItem('token')
+  if (!token || notifWs) return
+  notifWs = new WebSocket(`${WS_NOTIF_URL}?token=${token}`)
+  notifWs.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      unreadCount.value++
+      notifications.value.unshift({
+        id: Date.now(),
+        type: data.type,
+        actor: { username: data.actor_username },
+        created_at: new Date().toISOString(),
+        is_read: false,
+        post_id: data.post_id ?? null,
+      })
+    } catch (e) { console.error(e) }
+  }
+  notifWs.onclose = () => {
+    notifWs = null
+    // Reconnect after 3s if token still present
+    if (localStorage.getItem('token')) setTimeout(connectNotifWS, 3000)
+  }
+}
+
 onMounted(async () => {
   const token = localStorage.getItem('token')
   if (token) {
     try {
       await userStore.fetchUser()
       await fetchUnreadCount()
+      connectNotifWS()                                                                         // ca aussi
     } catch {
       localStorage.removeItem('token')
       router.push('/login')
@@ -352,8 +381,34 @@ onMounted(async () => {
 
   <div v-if="showNotifDropdown" class="fixed inset-0 z-40" @click="showNotifDropdown = false" />
   <div v-if="showSearchResults" class="fixed inset-0 z-40" @click="closeSearch" />
-
-  <router-view />
+    <router-view class="pb-14"/>
+    
+  <footer v-if="!hideNav"
+    :class="dark ? 'bg-gray-900 border-gray-800 text-gray-500' : 'bg-rose-50 border-rose-100 text-gray-400'"
+    class="fixed bottom-0 left-0 right-0 border-t py-3 px-6 z-30"
+  >
+      <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-xs">© 2026 ft_transcendence · 42</p>
+    
+        <div class="flex items-center gap-4">
+          <router-link
+            to="/terms"
+            :class="dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'"
+            class="text-xs transition-colors"
+          >
+            Conditions d'utilisation
+          </router-link>
+          <span :class="dark ? 'text-gray-700' : 'text-gray-300'">·</span>
+          <router-link
+            to="/privacy"
+            :class="dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'"
+            class="text-xs transition-colors"
+          >
+            Politique de confidentialité
+          </router-link>
+        </div>
+      </div>
+    </footer>
 </template>
 
 <style scoped></style>

@@ -12,9 +12,9 @@ from app.models import User
 from app.schemas import TokenData
 
 # Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -33,8 +33,15 @@ def get_password_hash(password: str) -> str:
 
 
 # Token utilities
+def _require_secret_key() -> str:
+    if not SECRET_KEY:
+        raise RuntimeError("SECRET_KEY environment variable is not set")
+    return SECRET_KEY
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token"""
+    key = _require_secret_key()
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -42,22 +49,24 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, key, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def create_refresh_token(data: dict) -> str:
     """Create a longer-lived JWT refresh token"""
+    key = _require_secret_key()
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, key, algorithm=ALGORITHM)
 
 
 def verify_token(token: str) -> TokenData:
     """Verify and decode a JWT token"""
+    key = _require_secret_key()
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, key, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(
@@ -79,6 +88,9 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     """Authenticate a user by username and password"""
     user = db.query(User).filter(User.username == username).first()
     if not user:
+        return None
+    if not user.hashed_password:
+        # OAuth-only account — cannot log in with a password
         return None
     if not verify_password(password, user.hashed_password):
         return None

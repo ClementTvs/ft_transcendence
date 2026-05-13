@@ -143,10 +143,14 @@ async def delete_comment(
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
     
-    if comment.author_id != current_user.id:
+    # Allow deletion by comment author OR the post's author
+    post = db.query(Post).filter(Post.id == comment.post_id).first()
+    is_comment_author = comment.author_id == current_user.id
+    is_post_author = post is not None and post.author_id == current_user.id
+    if not is_comment_author and not is_post_author:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete your own comments"
+            detail="Only the comment author or the post author can delete this comment"
         )
     
     db.delete(comment)

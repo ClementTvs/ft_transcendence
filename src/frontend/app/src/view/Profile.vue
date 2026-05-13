@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
 import { useRouter } from 'vue-router'
-import { getUserStats, getUserPosts, uploadAvatar, uploadBanner } from '../api'
+import { getUserStats, getUserPosts, uploadAvatar, uploadBanner, deletePost } from '../api'
 
 const userStore = useUserStore()
 const themeStore = useThemeStore()
@@ -26,12 +26,17 @@ const user = computed(() => userStore.user)
 const bannerUrl = ref('')
 const avatarUrl = ref('')
 
-const API = 'http://localhost:8000'
+const API = ''
+
+// Menu options + confirmation
+const openMenuPostId = ref(null)
+const postToDelete = ref(null)
+const deleting = ref(false)
 
 
 onMounted(async () => {
   if (!user.value) return
-  
+
   if (user.value.avatar_url && user.value.avatar_url !== '/def_user.png') {
     avatarUrl.value = user.value.avatar_url.startsWith('http')
     ? user.value.avatar_url
@@ -39,8 +44,7 @@ onMounted(async () => {
   } else {
     avatarUrl.value = '/def_user.png'
   }
-  
-  console.log('banner_url brut:', user.value.banner_url, typeof user.value.banner_url)
+
   if (user.value.banner_url && user.value.banner_url !== '' && user.value.banner_url !== 'null') {
     bannerUrl.value = user.value.banner_url.startsWith('http')
       ? user.value.banner_url
@@ -65,7 +69,20 @@ onMounted(async () => {
   } catch (e) {
     console.error('Erreur posts:', e)
   }
+
+  document.addEventListener('keydown', onEsc)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onEsc)
+})
+
+function onEsc(e) {
+  if (e.key === 'Escape') {
+    openMenuPostId.value = null
+    postToDelete.value = null
+  }
+}
 
 async function onBannerChange(e) {
   const file = e.target.files[0]
@@ -96,9 +113,72 @@ function goToSettings() {
   router.push('/settings')
 }
 
+function goToPost(postId) {
+  router.push(`/post/${postId}`)
+}
+
 function formatDate(dateStr) {
   const d = new Date(dateStr)
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function parsePost(post) {
+  const match = post.content?.match(/^\[(.+?)\]\s*(.*)$/s)
+  if (match) return { game: match[1], content: match[2] }
+  return { game: null, content: post.content }
+}
+
+function postAuthorAvatar(post) {
+  const a = post.author?.avatar_url
+  if (!a || a === '/def_user.png') return '/def_user.png'
+  if (a.startsWith('http')) return a
+  if (a.startsWith('/')) return `${API}${a}`
+  return a
+}
+
+function toggleMenu(e, postId) {
+  e.stopPropagation()
+  openMenuPostId.value = openMenuPostId.value === postId ? null : postId
+}
+
+function closeMenu() {
+  openMenuPostId.value = null
+}
+
+function askDelete(e, post) {
+  e.stopPropagation()
+  postToDelete.value = post
+  openMenuPostId.value = null
+}
+
+function cancelDelete() {
+  if (deleting.value) return
+  postToDelete.value = null
+}
+
+async function confirmDelete() {
+  if (!postToDelete.value || deleting.value) return
+  const post = postToDelete.value
+  deleting.value = true
+
+  // Optimistic update
+  const prevPosts = userPosts.value
+  const prevStats = { ...stats.value }
+  userPosts.value = userPosts.value.filter(p => p.id !== post.id)
+  stats.value.posts = Math.max(0, stats.value.posts - 1)
+
+  try {
+    await deletePost(post.id)
+    postToDelete.value = null
+  } catch (err) {
+    console.error('Erreur suppression post:', err)
+    // Revert
+    userPosts.value = prevPosts
+    stats.value = prevStats
+    alert('Erreur lors de la suppression du post')
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -212,19 +292,79 @@ function formatDate(dateStr) {
           <div
             v-for="post in userPosts"
             :key="post.id"
+            @click="goToPost(post.id)"
             :class="dark ? 'bg-gray-900 border-gray-700 hover:shadow-gray-900/50' : 'bg-white border-rose-100 hover:shadow-rose-100/50'"
-            class="rounded-xl border p-4 hover:shadow-md transition-shadow"
+            class="relative rounded-xl border p-4 hover:shadow-md transition-shadow cursor-pointer"
           >
-            <div class="flex items-center gap-3 mb-3">
+            <!-- Menu options (only for own posts) -->
+            <div
+              v-if="post.author_id === user?.id"
+              class="absolute top-3 right-3 z-10"
+              @click.stop
+            >
+              <button
+                @click="toggleMenu($event, post.id)"
+                :class="dark ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:text-gray-700 hover:bg-rose-50'"
+                class="p-1.5 rounded-full transition-colors"
+                aria-label="Options du post"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="2"/>
+                  <circle cx="12" cy="12" r="2"/>
+                  <circle cx="19" cy="12" r="2"/>
+                </svg>
+              </button>
+
+              <!-- Dropdown -->
+              <div
+                v-if="openMenuPostId === post.id"
+                :class="dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-rose-100'"
+                class="absolute right-0 top-full mt-1 w-44 rounded-xl border shadow-lg overflow-hidden z-20"
+              >
+                <button
+                  @click="askDelete($event, post)"
+                  :class="dark ? 'hover:bg-red-500/10' : 'hover:bg-red-50'"
+                  class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 transition-colors text-left"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6"/>
+                    <path d="M14 11v6"/>
+                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Supprimer
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 mb-3 pr-8">
               <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
-                <img v-if="post.author?.avatar_url" :src="post.author.avatar_url.startsWith('http') ? post.author.avatar_url : `${API}${post.author.avatar_url}`" alt="" class="w-full h-full object-cover" />
+                <img :src="postAuthorAvatar(post)" alt="" class="w-full h-full object-cover" />
               </div>
               <div>
                 <span :class="dark ? 'text-white' : 'text-gray-900'" class="font-semibold text-sm">{{ post.author?.display_name || post.author?.username }}</span>
                 <span :class="dark ? 'text-gray-500' : 'text-rose-300'" class="ml-2 text-xs">{{ formatDate(post.created_at) }}</span>
               </div>
             </div>
-            <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-sm leading-relaxed mb-3">{{ post.content }}</p>
+
+            <!-- Game tag -->
+            <span v-if="parsePost(post).game" :class="dark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'" class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4m-2-2v4m6-1h.01m4 0h.01"/></svg>
+              {{ parsePost(post).game }}
+            </span>
+
+            <p :class="dark ? 'text-gray-200' : 'text-gray-800'" class="text-sm leading-relaxed mb-3 whitespace-pre-wrap">{{ parsePost(post).content }}</p>
+
+            <!-- Image -->
+            <img
+              v-if="post.image_url"
+              :src="post.image_url.startsWith('http') ? post.image_url : `${API}${post.image_url}`"
+              :class="dark ? 'border-gray-700' : 'border-rose-100'"
+              class="mb-3 rounded-xl max-h-96 w-full object-cover border"
+              loading="lazy"
+            />
+
             <div class="flex gap-5">
               <span :class="dark ? 'text-gray-500' : 'text-rose-300'" class="flex items-center gap-1.5 text-xs">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -247,5 +387,84 @@ function formatDate(dateStr) {
         </div>
       </div>
     </div>
+
+    <!-- Backdrop pour fermer le menu options -->
+    <div
+      v-if="openMenuPostId !== null"
+      class="fixed inset-0 z-[5]"
+      @click="closeMenu"
+    />
+
+    <!-- Modal de confirmation suppression -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="postToDelete"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          @click.self="cancelDelete"
+        >
+          <div
+            :class="dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-rose-100'"
+            class="w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden"
+          >
+            <div class="p-6">
+              <div class="flex items-start gap-4">
+                <div :class="dark ? 'bg-red-500/10' : 'bg-red-50'" class="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 :class="dark ? 'text-white' : 'text-gray-900'" class="text-lg font-bold">Supprimer ce post ?</h3>
+                  <p :class="dark ? 'text-gray-400' : 'text-gray-500'" class="text-sm mt-1.5 leading-relaxed">
+                    Cette action est irréversible. Le post, son image et tous les commentaires associés seront définitivement supprimés.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Aperçu du post -->
+              <div
+                :class="dark ? 'bg-gray-800 border-gray-700' : 'bg-rose-50/60 border-rose-100'"
+                class="mt-4 p-3 rounded-xl border max-h-32 overflow-hidden"
+              >
+                <p :class="dark ? 'text-gray-300' : 'text-gray-700'" class="text-sm line-clamp-3">
+                  {{ parsePost(postToDelete).content || '(aucun texte)' }}
+                </p>
+              </div>
+            </div>
+
+            <div :class="dark ? 'bg-gray-800/50 border-gray-700' : 'bg-rose-50/30 border-rose-100'" class="flex justify-end gap-2 px-6 py-4 border-t">
+              <button
+                @click="cancelDelete"
+                :disabled="deleting"
+                :class="dark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'"
+                class="px-4 py-2 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                @click="confirmDelete"
+                :disabled="deleting"
+                class="px-5 py-2 rounded-full text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <svg v-if="deleting" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="animate-spin">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                {{ deleting ? 'Suppression...' : 'Supprimer' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

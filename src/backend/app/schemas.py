@@ -14,11 +14,22 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
+    username: Optional[str] = Field(None, min_length=3, max_length=30)
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
     banner_url: Optional[str] = None
     email: Optional[EmailStr] = None
+
+
+class BlockResponse(BaseModel):
+    id: int
+    blocker_id: int
+    blocked_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class UserResponse(UserBase):
@@ -63,6 +74,15 @@ class LoginRequest(BaseModel):
 
 class PasswordChange(BaseModel):
     current_password: str
+    new_password: str = Field(..., min_length=6, max_length=72)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     new_password: str = Field(..., min_length=6, max_length=72)
 
 

@@ -10,7 +10,7 @@ from app.models import User, Conversation, Message
 from app.schemas import MessageResponse, ConversationResponse
 from app.auth import get_current_active_user, verify_token
 from app.ws_manager import manager
-from app.crypto import encrpypt_message, decrypt_message
+from app.crypto import encrypt_message, decrypt_message
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
 
@@ -236,7 +236,7 @@ async def websocket_chat(websocket: WebSocket, token: str = Query(...)):
             new_msg = Message(
                 conversation_id=conv_id,
                 sender_id=user.id,
-                content=encrpypt_message(content),
+                content=encrypt_message(content),
             )
             db.add(new_msg)
             db.commit()

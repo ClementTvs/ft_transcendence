@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.models import User, Follow, Notification
-from app.schemas import FollowResponse, FollowWithUser, UserResponse
+from app.models import User, Follow, Notification, Block
+from app.schemas import FollowResponse, FollowWithUser, UserResponse, BlockResponse
 from app.auth import get_current_active_user
 from app.ws_manager import notif_manager
 
@@ -176,3 +176,78 @@ async def get_follow_suggestions(
     ).limit(limit).all()
     
     return suggestions
+
+
+# ── Block / Unblock ──────────────────────────────────────────────────────────
+
+@router.post("/block/{user_id}", status_code=status.HTTP_201_CREATED)
+async def block_user(
+    user_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Block a user. Also removes any existing follow relationship."""
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot block yourself"
+        )
+
+    user_to_block = db.query(User).filter(User.id == user_id).first()
+    if not user_to_block:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing_block = db.query(Block).filter(
+        Block.blocker_id == current_user.id,
+        Block.blocked_id == user_id
+    ).first()
+    if existing_block:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You have already blocked this user"
+        )
+
+    # Remove follow relationships in both directions if they exist
+    db.query(Follow).filter(
+        ((Follow.follower_id == current_user.id) & (Follow.followed_id == user_id)) |
+        ((Follow.follower_id == user_id) & (Follow.followed_id == current_user.id))
+    ).delete(synchronize_session=False)
+
+    new_block = Block(blocker_id=current_user.id, blocked_id=user_id)
+    db.add(new_block)
+    db.commit()
+
+    return {"message": f"User {user_to_block.username} has been blocked"}
+
+
+@router.delete("/unblock/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unblock_user(
+    user_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Unblock a previously blocked user."""
+    block = db.query(Block).filter(
+        Block.blocker_id == current_user.id,
+        Block.blocked_id == user_id
+    ).first()
+
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+
+    db.delete(block)
+    db.commit()
+    return None
+
+
+@router.get("/blocked", response_model=List[UserResponse])
+async def get_blocked_users(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Return the list of users blocked by the current user."""
+    blocked_ids = [b.blocked_id for b in current_user.blocking]
+    if not blocked_ids:
+        return []
+    users = db.query(User).filter(User.id.in_(blocked_ids)).all()
+    return users
