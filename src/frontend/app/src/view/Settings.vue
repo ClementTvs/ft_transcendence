@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, reactive } from 'vue'
-import { uploadAvatar, uploadBanner, changePassword, deleteAccount } from '../api'
+import { uploadAvatar, uploadBanner, changePassword, deleteAccount, updateProfile } from '../api'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
 
@@ -88,6 +88,23 @@ async function handleSave() {
 
 async function save() {
   let changed = false
+
+  // Save profile fields (username, display_name, email, bio)
+  const profilePayload = {}
+  if (form.username !== userStore.user.username) profilePayload.username = form.username
+  if (form.display_name !== userStore.user.display_name) profilePayload.display_name = form.display_name
+  if (form.email !== userStore.user.email) profilePayload.email = form.email
+  if ((form.bio ?? '') !== (userStore.user.bio ?? '')) profilePayload.bio = form.bio
+
+  if (Object.keys(profilePayload).length > 0) {
+    try {
+      await updateProfile(profilePayload)
+      await userStore.fetchUser()
+      changed = true
+    } catch (err) {
+      console.error('Error updating profile:', err)
+    }
+  }
 
   if (form.avatar_file && form.avatar_url !== userStore.user.avatar_url) {
     try {

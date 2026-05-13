@@ -10,9 +10,26 @@ const error = ref('');
 const router = useRouter();
 const showPassword = ref(false);
 
+function validate() {
+  const u = username.value.trim()
+  const e = email.value.trim()
+  const p = password.value
+  if (!u) return 'Veuillez saisir un nom d\'utilisateur.'
+  if (u.length < 3 || u.length > 30) return 'Le nom d\'utilisateur doit contenir entre 3 et 30 caractères.'
+  if (/\s/.test(u)) return 'Le nom d\'utilisateur ne doit pas contenir d\'espaces.'
+  if (!e) return 'Veuillez saisir une adresse e-mail.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return 'Adresse e-mail invalide.'
+  if (!p) return 'Veuillez saisir un mot de passe.'
+  if (p.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères.'
+  if (p.length > 72) return 'Le mot de passe doit contenir au maximum 72 caractères.'
+  return null
+}
+
 async function handleRegister() {
+  error.value = validate() || ''
+  if (error.value) return
   try {
-    await register(username.value, email.value, password.value);
+    await register(username.value.trim(), email.value.trim(), password.value);
     router.push('/login')
   } catch (e) {
     error.value = e.message;
