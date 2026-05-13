@@ -194,11 +194,24 @@ onMounted(async () => {
     try {
       await userStore.fetchUser()
       await fetchUnreadCount()
-      connectNotifWS()                                                                         // ca aussi
+      connectNotifWS()
     } catch {
       localStorage.removeItem('token')
       router.push('/login')
     }
+  }
+})
+
+// Connect WS when user logs in after the app was already mounted (e.g. arriving from /login)
+watch(() => userStore.user, (newUser, oldUser) => {
+  if (newUser && !oldUser) {
+    fetchUnreadCount()
+    connectNotifWS()
+  }
+  // Disconnect WS on logout
+  if (!newUser && notifWs) {
+    notifWs.close()
+    notifWs = null
   }
 })
 </script>
