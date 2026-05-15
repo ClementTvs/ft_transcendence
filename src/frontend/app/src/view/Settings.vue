@@ -448,9 +448,7 @@ const errorIcon = `<svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBo
           </button>
         </div>
       </div>
-
       <div class="px-8 py-8 max-w-2xl">
-
         <template v-if="activeSection === 'profile'">
           <div :class="['rounded-2xl border mb-5 shadow-sm overflow-hidden transition-colors duration-300', themeClasses.card]">
 
@@ -741,7 +739,7 @@ const errorIcon = `<svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBo
               <option value="es">🇪🇸 Español</option>
             </select>
           </div> -->
-        </template> 
+        <!-- </template>  -->
 
         <!-- API KEYS SECTION -->
         <template v-if="activeSection === 'apikeys'">
