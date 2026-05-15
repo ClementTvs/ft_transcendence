@@ -10,7 +10,7 @@ down:
 	$(COMPOSE) down
 
 seed:
-	$(COMPOSE) exec backednd python seed_db.py
+	$(COMPOSE) exec backend python seed_db.py
 
 clean:
 	@$(COMPOSE) down -v

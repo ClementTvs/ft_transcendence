@@ -61,14 +61,6 @@ function resetPassErrors() {
   passErrors.pass2 = ''
 }
 
-// Reset auto des erreurs quand l'user modifie un champ
-watch(() => form?.username, () => { profileErrors.username = '' })
-watch(() => form?.display_name, () => { profileErrors.display_name = '' })
-watch(() => form?.email, () => { profileErrors.email = '' })
-watch(() => form?.bio, () => { profileErrors.bio = '' })
-watch(currentPass, () => { passErrors.current = '' })
-watch(pass1, () => { passErrors.pass1 = '' })
-watch(pass2, () => { passErrors.pass2 = '' })
 
 async function onBannerChange(e) {
   const file = e.target.files[0]
@@ -267,6 +259,14 @@ const form = reactive({
   email: userStore.user.email,
   bio: userStore.user.bio,
 })
+
+watch(() => form.username, () => { profileErrors.username = '' })
+watch(() => form.display_name, () => { profileErrors.display_name = '' })
+watch(() => form.email, () => { profileErrors.email = '' })
+watch(() => form.bio, () => { profileErrors.bio = '' })
+watch(currentPass, () => { passErrors.current = '' })
+watch(pass1, () => { passErrors.pass1 = '' })
+watch(pass2, () => { passErrors.pass2 = '' })
 
 const navItems = {
   account: [
