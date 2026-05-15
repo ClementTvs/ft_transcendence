@@ -755,7 +755,6 @@ const errorIcon = `<svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBo
               <p class="text-xs font-semibold text-green-600">Clé créée — copiez-la maintenant, elle ne sera plus affichée !</p>
               <div class="flex items-center gap-2">
                 <code :class="['flex-1 text-xs font-mono break-all rounded-lg px-3 py-2', isDark ? 'bg-gray-700 text-gray-200' : 'bg-white text-gray-800 border border-green-200']">{{ newKeyCreated.key }}</code>
-                <button @click="navigator.clipboard.writeText(newKeyCreated.key)" :class="['text-xs px-3 py-2 rounded-lg font-medium transition-colors', isDark ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' : 'bg-green-100 hover:bg-green-200 text-green-700']">Copier</button>
               </div>
               <button @click="newKeyCreated = null" class="text-xs text-gray-400 hover:text-gray-600">Fermer</button>
             </div>
